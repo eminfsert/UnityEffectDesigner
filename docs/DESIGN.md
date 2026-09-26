@@ -184,7 +184,7 @@ id: arcane_nova_impact
 archetype: impact            # projectile | impact | aura | beam | portal | buff | pickup | ...
 style: stylized_hand_painted
 platform: pc                 # pc | console | mobile
-pipeline: urp                # köprüden otomatik
+pipeline: urp                # Unity 6 URP (köprüden doğrulanır)
 duration: 1.6                # saniye
 loop: false
 scale_meters: 3.0
@@ -202,6 +202,7 @@ layers:
     role: impact
     window: [0.35, 0.50]
     technique: particle_billboard
+    backend: shuriken
     needs: { texture: soft_glow_star, shader: vfx_additive_flipbook }
   - id: shockwave
     role: impact
@@ -212,7 +213,15 @@ layers:
     role: secondary
     window: [0.36, 1.20]
     technique: particle_stretched
+    backend: shuriken
     count_hint: 40
+  - id: arcane_dust
+    role: ambient
+    window: [0.00, 1.60]
+    technique: gpu_particles_sdf_attract   # önce küreye çekilir, impact'te savrulur
+    backend: vfxgraph
+    template: gpu_dust_attractor
+    count_hint: 20000
   # ...
 extras:
   camera_shake: { t: 0.35, amplitude: 0.25, duration: 0.3 }
@@ -375,8 +384,7 @@ unity-vfx-designer/
 │   ├── effect-archetypes/       # arketip şablonları
 │   ├── shuriken-reference/
 │   ├── vfxgraph-reference/
-│   ├── urp-vfx-shaders/         # HLSL tarif kitabı + VFXCore.hlsl
-│   ├── hdrp-vfx-shaders/
+│   ├── urp-vfx-shaders/         # HLSL tarif kitabı + VFXCore.hlsl + Shader Graph sarmalayıcıları
 │   ├── texture-authoring/       # SVG kalıpları, noise tarifleri, kanal paketleme
 │   ├── procedural-meshes/
 │   └── platform-budgets/
@@ -386,6 +394,7 @@ unity-vfx-designer/
 │   ├── effect-spec.schema.json
 │   ├── manifest.schema.json
 │   ├── particle-recipe.schema.json
+│   ├── vfxgraph-recipe.schema.json
 │   └── material-recipe.schema.json
 ├── tools/                       # Python yardımcıları
 │   ├── svg_rasterize.py
@@ -397,8 +406,10 @@ unity-vfx-designer/
 │   └── unity-bridge/            # MCP sunucusu
 └── unity-package/
     └── com.effectdesigner.bridge/
-        ├── Editor/              # HTTP sunucu, recipe builder'lar, render yakalama, profiler
-        └── Runtime/             # EffectController, pool arayüzü
+        ├── Editor/              # HTTP sunucu, Shuriken + VFX Graph builder'ları, render yakalama, profiler
+        ├── Runtime/             # EffectController (iki backend'i birlikte yönetir), pool arayüzü
+        ├── Shaders/             # VFXCore.hlsl, Shader Graph şablonları
+        └── VFXTemplates/        # İnsan eliyle yapılmış .vfx şablonları + property imzaları (JSON)
 ```
 
 ### Örnek ajan tanımı
@@ -406,8 +417,9 @@ unity-vfx-designer/
 ```markdown
 ---
 name: shader-artist
-description: Unity VFX shader uzmanı. URP/HDRP/Built-in için HLSL/ShaderLab
-  efekt shader'ları yazar (dissolve, erosion, distortion, flipbook, fresnel).
+description: Unity 6 URP VFX shader uzmanı. Shuriken için HLSL/ShaderLab,
+  VFX Graph için Custom Function tabanlı Shader Graph sarmalayıcıları yazar
+  (dissolve, erosion, distortion, flipbook, fresnel).
   manifest.yaml'daki property ve vertex stream sözleşmesine uyar.
 tools: Read, Write, Edit, Glob, Grep, mcp__unity-bridge__unity_compile_shader,
   mcp__unity-bridge__unity_apply_material_recipe
@@ -432,9 +444,9 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 
 | Faz | Kapsam | Başarı kriteri |
 |---|---|---|
-| **MVP-1** | Unity köprüsü (compile, recipe builder, **render yakalama**), Architect, Texture&Vector, Shader (URP HLSL), Particle (Shuriken), Critic, 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan prefab |
-| **MVP-2** | Mesh Artist, Motion Designer (kamera/ışık), Performance Engineer, konsept panosu, `/vfx:iterate`, `/vfx:variant` | Stilize MOBA kalitesine yaklaşan katmanlı efektler; mobil bütçe raporu |
-| **MVP-3** | VFX Graph, Shader Graph şablonları, HDRP, Style Librarian (proje hafızası), `/vfx:explore` A/B/C | Proje stilini öğrenen, tutarlı efekt setleri üreten stüdyo |
+| **MVP-1** | Unity 6 URP köprüsü (compile, Shuriken recipe builder, VFX Graph şablon+property builder, **render yakalama**), Architect, Texture&Vector, Shader (`VFXCore.hlsl` + `.shader` + Shader Graph sarmalayıcı), Particle (Shuriken + ~8 VFX Graph şablonu), Critic, 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan, iki backend'i karışık kullanan prefab |
+| **MVP-2** | Mesh Artist, Motion Designer (kamera/ışık), Performance Engineer, konsept panosu, `/vfx:iterate`, `/vfx:variant`, VFX Graph modüler kompozisyon + Custom HLSL blokları | Stilize MOBA kalitesine yaklaşan katmanlı efektler; mobil bütçe raporu (compute yoksa otomatik Shuriken fallback) |
+| **MVP-3** | Programatik VFX Graph kurucu (deneysel), Style Librarian (proje hafızası), `/vfx:explore` A/B/C | Proje stilini öğrenen, tutarlı efekt setleri üreten stüdyo |
 
 ---
 
@@ -444,7 +456,9 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 |---|---|
 | LLM'in hareketi statik karelerden yargılaması zor | Yoğun kare şeridi + GIF + eğri grafikleri; zamanlama kararları Motion Designer'ın sayısal beat haritasına dayanır |
 | Unity YAML/GUID kırılganlığı | Deklaratif recipe + C# builder; ham YAML yazımı yasak |
-| VFX Graph / Shader Graph dosya formatları kırılgan | Şablon + exposed property; MVP-3'e ertelendi |
+| VFX Graph / Shader Graph dosya formatları kırılgan, grafik API'si `internal` | Şablon + exposed property (MVP-1), Custom HLSL (MVP-2); programatik kurucu sürüm-kilitli ve deneysel (MVP-3) |
+| VFX Graph şablon kütüphanesinin kalitesi tüm sonucu belirler | Şablonlar insan eliyle yapılır/gözden geçirilir; her şablonun referans render'ı ve property imzası testlerle korunur |
+| Mobilde VFX Graph (compute) desteklenmeyebilir | Platform `mobile` ise Performance Engineer VFX Graph katmanlarını Shuriken eşdeğerine düşürür ya da uyarır |
 | Token maliyeti (çok ajan, çok tur) | Skill'lerle ihtiyaç anında bilgi yükleme; tur limiti; ucuz model yardımcı işlerde; sadece değişen katmanın yeniden üretimi |
 | Editor açık olmadan render yok | Yerel çalışma şartı; GPU'lu batchmode yedeği |
 | Renk uzayı / HDR tutarsızlığı | Köprü Linear/Gamma ve HDR ayarını okur, spec renkleri buna göre dönüştürülür |
@@ -453,10 +467,11 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 
 ## 12. Karar Bekleyen Sorular
 
-1. **Hedef Unity sürümü ve pipeline?** (Öneri: Unity 6 + URP ile başla.)
-2. **Partikül önceliği: Shuriken mi, VFX Graph mı?** (Öneri: Shuriken — mobil
-   dahil her yerde çalışır, API'si script ile tam kurulabilir.)
+1. ~~Hedef Unity sürümü ve pipeline?~~ → **Unity 6 + URP** ✓
+2. ~~Partikül önceliği?~~ → **Shuriken + VFX Graph birlikte** ✓
 3. **2D (sprite/UI efektleri) de kapsamda mı?**
 4. **Unity köprüsü:** sıfırdan mı yazalım, mevcut bir açık kaynak Unity MCP
    üzerine mi kuralım?
 5. **Stil hedefi:** stilize (el boyaması/anime/MOBA) mı, gerçekçi mi, ikisi de mi?
+6. **Hedef platform:** PC/konsol mu, mobil de mi? (VFX Graph kullanımını
+   doğrudan etkiler.)
