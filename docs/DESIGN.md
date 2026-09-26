@@ -1,6 +1,13 @@
 # Unity Effect Designer — Claude Code için VFX Ajan Stüdyosu
 
-> Durum: **Tasarım taslağı (v0.1)** — değerlendirme ve karar için.
+> Durum: **Tasarım taslağı (v0.2)** — değerlendirme ve karar için.
+
+### Alınan kararlar
+
+| Konu | Karar |
+|---|---|
+| Motor / pipeline | **Unity 6 + URP** (HDRP ve Built-in kapsam dışı) |
+| Partikül sistemi | **Shuriken + VFX Graph birlikte** — katman bazında seçim (bkz. §6.1) |
 
 Kullanıcının betimlediği ya da referans görselle desteklediği bir efekti
 ("mor-altın renkli, önce içe çöken sonra patlayan bir büyü halkası") Unity
@@ -39,8 +46,8 @@ Plugin tüm bunları tek paket olarak dağıtır; `/plugin install` ile kurulur.
 | 0 | **VFX Director** *(ana oturum)* | Brief'i yorumlar, referans görseli katmanlara ayırır, efekt spesifikasyonunu yazar, ekibi yönetir, son sözü söyler | `effect.spec.yaml` |
 | 1 | **Systems Architect** | Paketin sistem tasarımı: klasör yapısı, isimlendirme, render pipeline tespiti, prefab hiyerarşisi, ajanlar arası **sözleşmeler** (shader property adları, vertex stream düzeni, texture kanal paketleme), runtime controller | `manifest.yaml`, `EffectController.cs`, asmdef |
 | 2 | **Texture & Vector Artist** | SVG ile vektör çizim (halka, kıvılcım, slash, rune, yıldız), prosedürel doku (Perlin/Voronoi/FBM noise), gradient ramp/LUT, flipbook atlası, SDF | `.svg` → `.png`, noise, flipbook |
-| 3 | **Shader Artist** | URP/HDRP/Built-in için HLSL/ShaderLab: dissolve, erosion, fresnel, UV scroll, distortion, soft particle, flipbook blend, vertex offset, additive/alpha-blend/premultiplied varyantları | `.shader`, `.hlsl`, material recipe |
-| 4 | **Particle Artist** | Shuriken (ParticleSystem) uzmanı; ileride VFX Graph. Emisyon, şekil, ömür eğrileri, noise, trail, sub-emitter, custom vertex stream | `particle recipe (JSON)` |
+| 3 | **Shader Artist** | URP için HLSL/ShaderLab + VFX Graph'a Shader Graph sarmalayıcıları: dissolve, erosion, fresnel, UV scroll, distortion, soft particle, flipbook blend, vertex offset, additive/alpha-blend/premultiplied varyantları | `.shader`, `.hlsl`, material recipe |
+| 4 | **Particle Artist** | Shuriken **ve** VFX Graph uzmanı; her katman için doğru backend'i seçer. Emisyon, şekil, ömür eğrileri, noise, trail/strip, sub-emitter/GPU event, custom vertex stream | `particle recipe (JSON)` / VFX Graph recipe |
 | 5 | **VFX Critic (Görsel QA)** | Unity'den alınan render karelerini spec ve referansla karşılaştırır, puanlar, somut düzeltme listesi çıkarır | `review.md` + değişiklik listesi |
 
 ### 2.2 Genişletilmiş ekip (önerilen ek yetenekler)
@@ -137,6 +144,8 @@ Claude Code ──stdio──> MCP Sunucusu (TypeScript/Python)
 | `unity_compile_shader` | Shader'ı derler, hata/uyarıları satır numarasıyla döner |
 | `unity_apply_material_recipe` | JSON → Material (shader, property, keyword, render queue) |
 | `unity_apply_particle_recipe` | JSON → ParticleSystem hiyerarşisi (tüm modüller) |
+| `unity_apply_vfxgraph_recipe` | Şablon `.vfx` kopyala → exposed property'leri ata (texture, gradient, curve, sayı, mesh) → `VisualEffect` bileşeni kur |
+| `unity_list_vfx_templates` | Şablon kütüphanesindeki grafikleri ve exposed property imzalarını listele |
 | `unity_import_mesh` / `unity_import_texture` | Import ayarlarıyla (sRGB, wrap, mip, sprite mode, flipbook) |
 | `unity_build_prefab` | Hiyerarşiyi prefab olarak kaydet |
 | `unity_render_preview` | Önizleme sahnesinde efekti oynat, verilen zamanlarda/açılarda PNG kareler + GIF döndür |
@@ -156,8 +165,10 @@ Faydaları: şema doğrulaması, küçük diff'ler, iterasyonda sadece parametre
 yaması, versiyon kontrolü dostu, LLM'in en iyi olduğu şey olan *yapılandırılmış
 veri* üretimi.
 
-Shader'lar ise **kod** olarak yazılır (HLSL, LLM için doğal). Shader Graph
-desteği şablon tabanlı olarak sonraya bırakılır (JSON'u kırılgan).
+Shader'lar ise **kod** olarak yazılır (HLSL, LLM için doğal). VFX Graph
+çıktıları için gereken Shader Graph'lar ise ince şablonlardır: tüm mantık aynı
+HLSL dosyasında durur, Shader Graph sadece `Custom Function` düğümüyle onu
+çağırır (bkz. §6.2).
 
 ### Mevcut açık kaynak köprüler
 
@@ -280,8 +291,9 @@ Paralel üretimin anahtarı. Örnekler:
 ### Shader Artist
 - Ortak `VFXCore.hlsl` kütüphanesi: soft particle, flipbook blend, polar UV,
   UV distort, erosion step/smoothstep, fresnel, HDR tint, dither fade.
-- Pipeline'a göre varyant (URP önce). Blend modları: Additive, Alpha,
-  Premultiplied, Multiply.
+- İki çıktı: Shuriken için URP `.shader`, VFX Graph için aynı HLSL'i
+  `Custom Function` ile çağıran Shader Graph şablonları. Blend modları:
+  Additive, Alpha, Premultiplied, Multiply.
 - Her shader yazımından sonra hook ile derleme; hata varsa otomatik düzeltme.
 - Mobil için `half` hassasiyet, keyword sayısı sınırlaması.
 
@@ -290,7 +302,67 @@ Paralel üretimin anahtarı. Örnekler:
   kıvılcım, duman, kor, toz, sihirli toz, yağmur, kan, enerji akışı).
 - Sub-emitter (ölüm/çarpışma), trail, noise, limit velocity, collision.
 - Custom vertex stream ile shader'a veri taşıma (sözleşmeye uygun).
-- MVP-3: VFX Graph (GPU) — şablon grafik + exposed property yaklaşımı.
+- VFX Graph: şablon kütüphanesi + exposed property ile kurulum, GPU event,
+  strip, SDF/depth-buffer çarpışma, 6-way lit duman (bkz. §6.1).
+
+### 6.1 İki partikül backend'i: Shuriken + VFX Graph
+
+Tek bir efekt **karışık** olabilir: aynı prefab içinde bir katman Shuriken,
+diğeri VFX Graph. Seçim katman bazında, Particle Artist tarafından ve spec'te
+görünür biçimde yapılır (`layers[].backend`).
+
+**Seçim kuralları (varsayılan):**
+
+| Durum | Backend | Neden |
+|---|---|---|
+| Hedef platformda compute shader yok / düşük uç mobil | Shuriken | VFX Graph compute gerektirir |
+| Katmanda < ~1.000 partikül, CPU'dan kontrol (fizik callback, script ile tek tek partikül) | Shuriken | Basit, her yerde çalışır, `OnParticleCollision` |
+| Binlerce–milyonlarca partikül (toz bulutu, sürü, kıvılcım yağmuru) | VFX Graph | GPU simülasyonu |
+| Uzun kesintisiz şeritler, GPU event zincirleri, SDF'e yapışan/akan partiküller, depth buffer çarpışması | VFX Graph | Shuriken'de yok ya da pahalı |
+| Işık almış hacimsel duman (6-way lighting) | VFX Graph | URP'de 6-way lit output |
+| Mesh partikül + özel HLSL shader, basit burst | Shuriken | Doğrudan `.shader` kullanır |
+
+**VFX Graph üretim stratejisi** — `.vfx` dosyaları çok nesneli YAML'dır ve
+grafik düzenleme API'si büyük oranda `internal`'dır; elle yazmak kırılgandır.
+Bu yüzden üç kademe:
+
+1. **Şablon + exposed property (MVP-1)** — Eklentiyle gelen, insan eliyle
+   yapılmış kaliteli bir `.vfx` şablon kütüphanesi (burst sparks, GPU dust
+   cloud, strip trail, 6-way smoke, mesh shockwave, orbiting motes, SDF
+   attractor…). Her şablonun exposed property imzası JSON olarak belgelenir.
+   Ajan şablonu seçer, kopyalar, property'leri atar. Kalitenin tabanı yüksek,
+   kırılganlık sıfır.
+2. **Modüler kompozisyon + Custom HLSL (MVP-2)** — Bir efekt birden çok
+   `VisualEffect` bileşeninin (katman başına bir şablon) birleşimi.
+   Davranış farkları Unity 6'nın **Custom HLSL** blok/operatörleri ve
+   subgraph'larla eklenir; ajan HLSL yazar, şablon sabit kalır.
+3. **Programatik grafik kurucu (MVP-3, deneysel)** — Köprüde, VFX Graph'ın
+   editor modelini (reflection ile) kullanıp context/blok ekleyen bir builder.
+   Unity sürüm yükseltmelerinde kırılabileceği için sürüm-kilitli ve testli.
+
+**Ortak dil:** İki backend için de recipe'ler aynı kavramları kullanır
+(ömür, hız, boyut/renk eğrileri, burst zamanları, palet referansları). Motion
+Designer'ın beat haritası ve eğrileri iki backend'e de aynı şekilde çevrilir;
+Critic hangi backend olduğunu bilmek zorunda değildir.
+
+### 6.2 URP'ye özel teknik kurallar (Unity 6)
+
+- **Render Graph:** Unity 6 URP varsayılan olarak Render Graph kullanır;
+  özel Renderer Feature gerekirse (ör. ekran distorsiyonu, özel blur)
+  Render Graph API'siyle yazılır.
+- **Distorsiyon/refraksiyon:** URP asset'inde *Opaque Texture* açık olmalı
+  (`_CameraOpaqueTexture`); köprü kontrol eder, kapalıysa uyarır.
+- **Soft particle / depth fade:** *Depth Texture* açık olmalı.
+- **Tek HLSL, iki tüketici:** `VFXCore.hlsl` hem Shuriken için yazılan
+  `.shader` dosyalarında, hem de VFX Graph çıktılarının kullandığı Shader
+  Graph'larda (`Support VFX Graph` açık, mantık `Custom Function` düğümünde)
+  kullanılır. Böylece dissolve/erosion gibi bir teknik bir kez yazılır, iki
+  backend'de aynı görünür.
+- **HDR & bloom:** Renkler HDR yoğunluğuyla verilir; Volume'daki bloom eşiği
+  köprüden okunur ki "parlıyor mu" kararı gerçek ayara göre verilsin.
+- **Decal:** Zemin izleri için URP Decal Projector (Renderer'da Decal
+  feature açık olmalı).
+- **SRP Batcher uyumu:** Shader'lar `CBUFFER_START(UnityPerMaterial)` kuralına uyar.
 
 ### Mesh Artist
 - Prosedürel mesh üretimi (Python → OBJ/FBX veya C# `Mesh` API): düz halka,
