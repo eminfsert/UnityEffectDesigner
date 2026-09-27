@@ -126,6 +126,14 @@ a property contract and lists missing properties and type mismatches.
   noise erosion driven by `_Erosion` + Custom1.x (vertex streams
   `Position, Color, UV, Custom1X`), glowing erosion edge, posterized alpha, soft particles.
 
+## Starter textures
+
+Procedural, white RGB with the shape in alpha (color comes from the material tint):
+`Textures/T_VFX_SoftGlow.png` (glow with a hot core), `Textures/T_VFX_Star4.png`
+(stylized 4-point sparkle), `Textures/T_VFX_Noise.png` (tileable fractal noise, linear,
+repeat) for erosion. Regenerate with `tools/textures/gen_starter_textures.py`. Effect-specific
+textures are made by the Texture & Vector Artist agent in the project's own folders.
+
 ## Development
 
 `tests/run.sh` (repo root) compiles the package against Unity reference assemblies in

@@ -31,6 +31,46 @@ TEMPLATES = {
 }
 
 
+def texture_meta(rel_path: str) -> str:
+    """Particle textures clamp and are sRGB; noise/data textures (name contains "Noise") repeat and are linear."""
+    data = "noise" in rel_path.lower()
+    return f"""TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {{}}
+  serializedVersion: 12
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: {0 if data else 1}
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  isReadable: 0
+  streamingMipmaps: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: {0 if data else 1}
+    wrapV: {0 if data else 1}
+    wrapW: {0 if data else 1}
+  nPOTScale: 1
+  lightmap: 0
+  compressionQuality: 50
+  alphaUsage: 1
+  alphaIsTransparency: {0 if data else 1}
+  textureType: 0
+  textureShape: 1
+""" + FOOTER
+
+
 def guid_for(package_name: str, rel_path: str) -> str:
     return hashlib.md5(f"{package_name}/{rel_path}".encode("utf-8")).hexdigest()
 
@@ -46,11 +86,11 @@ def main(package_dir: str) -> int:
         if meta.exists():
             continue
         kind = "folder" if path.is_dir() else path.suffix.lower()
-        template = TEMPLATES.get(kind)
+        rel = path.relative_to(root).as_posix()
+        template = texture_meta(rel) if kind in (".png", ".tga", ".jpg") else TEMPLATES.get(kind)
         if template is None:
             print(f"skip (no template): {path.relative_to(root)}", file=sys.stderr)
             continue
-        rel = path.relative_to(root).as_posix()
         meta.write_text(f"fileFormatVersion: 2\nguid: {guid_for(package_name, rel)}\n{template}", encoding="utf-8")
         print(f"created {meta.relative_to(root)}")
         created += 1
