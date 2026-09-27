@@ -1,6 +1,6 @@
 # Unity Effect Designer — Claude Code için VFX Ajan Stüdyosu
 
-> Durum: **Tasarım taslağı (v0.4)** — değerlendirme ve karar için.
+> Durum: **Tasarım taslağı (v0.5)** — değerlendirme ve karar için.
 
 ### Alınan kararlar
 
@@ -287,16 +287,42 @@ Paralel üretimin anahtarı. Örnekler:
 
 ## 6. Uzman Detayları
 
-### Texture & Vector Artist
-- **Vektör:** SVG yazar → `resvg`/`cairosvg` ile PNG (2'nin kuvveti boyut,
-  premultiplied alfa kontrolü). Tipik şekiller: yumuşak glow, 4/6 kollu yıldız,
-  kırık halka, slash yayı, rune/sembol, damla, kıvılcım çizgisi.
-- **Prosedürel:** Python (numpy) ile tileable Perlin/Simplex/Voronoi/FBM,
-  domain warp, erosion ramp, gradient LUT.
-- **Flipbook:** Kare dizisi üret → atlas'a paketle (ör. 4×4, 8×8) + import
-  ayarlarını manifest'e yaz.
-- **Kalite kontrol:** Kenar taşması, tile dikişi, alfa halo'su kontrolü; kendi
-  çıktısının küçük önizlemesini görsel olarak inceler.
+### Texture & Vector Artist — efektin içindeki 2D çizimler
+
+Partikül efektlerinin büyük kısmı, partiküllerin taşıdığı **2D sprite/doku**
+kadar iyidir. Bu ajan efektin ihtiyaç duyduğu her 2D çizimi *o efekt için*,
+spec'teki palet ve şekil diline göre üretir. Hazır doku kütüphanesine mecbur
+kalınmaz.
+
+**Üretim yolları (ajan ihtiyaca göre seçer / birleştirir):**
+
+| Yol | Nasıl | Güçlü olduğu yer |
+|---|---|---|
+| **1. Vektör (SVG)** — varsayılan | Ajan SVG kodu yazar → `resvg` ile PNG | Keskin, stilize, geometrik şekiller: yıldız/sparkle, halka, slash yayı, hilal, streak, damla, yaprak, tüy, kalkan altıgenleri, **büyü çemberi ve rünler**, heal "+", kalp, coin parıltısı |
+| **2. Organik vektör** | SVG + filtreler: `feTurbulence` + `feDisplacementMap` (tırtıklı/fırça kenar), `feGaussianBlur` (glow), `feComponentTransfer` (2–3 tonlu posterize) | Stilize duman topu, alev dili, patlama bulutu, enerji çatlağı — "elle boyanmış" his |
+| **3. Prosedürel (Python/numpy)** | Kod ile piksel üretimi | Tileable noise (Perlin/Voronoi/FBM), erosion maskeleri, gradient ramp/LUT, **prosedürel şimşek** (dallanan L-system), SDF |
+| **4. AI görsel üretimi** — opsiyonel | MCP for Unity'nin `generate_image` aracı (fal.ai / OpenRouter, kullanıcının kendi API anahtarı) | Çok ressamsı, karmaşık, detaylı sprite'lar. Şeffaf arka plan üretemediği için siyah zeminde istenir, alfa parlaklıktan türetilir, sonra posterize + paletle yeniden renklendirilir |
+
+**Flipbook (animasyonlu sprite):** Aynı SVG/noise parametresi kare kare
+değiştirilerek (ör. duman topunun erosion eşiği 0→1, alevin turbulence
+seed'i) 8–16 kare üretilir → atlas'a (4×4) paketlenir → Shuriken'de
+Texture Sheet Animation, VFX Graph'ta flipbook olarak bağlanır. Stilize
+"çizilmiş animasyon" hissi buradan gelir.
+
+**Renk stratejisi:** Sprite'lar çoğunlukla **gri tonlu maske** olarak üretilir
+(R = şekil, G = iç detay, B = erosion ramp). Renk shader'da palet/gradient
+map ile verilir. Böylece aynı sprite ateş, buz ya da zehir varyantında yeniden
+kullanılır (`/vfx:variant`).
+
+**Kendi işini görerek kontrol:** Ajan ürettiği PNG'yi görsel olarak açıp
+inceler (Claude görsel okuyabilir). Ayrıca otomatik kontroller çalışır:
+kenara taşma (partikülde kesik görünür), alfa halo'su, tile dikişi, değer
+dağılımı (çok gri/düz mü?), 64 px'e küçültüldüğünde okunurluk.
+
+**Sınırı (dürüst değerlendirme):** Geometrik ve stilize şekillerde SVG ile
+çok iyi sonuç beklenir. Karakter/yaratık illüstrasyonu gibi figüratif
+çizimlerde (ör. efektin içinde bir ejderha kafası silüeti) SVG vasat kalır.
+O durumda 4. yol ya da kullanıcının vereceği bir görsel kullanılır.
 
 ### Shader Artist
 - Ortak `VFXCore.hlsl` kütüphanesi: soft particle, flipbook blend, polar UV,
@@ -578,4 +604,7 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 3. ~~Stil?~~ → **Stilize** ✓
 4. ~~Platform?~~ → **PC / konsol, mobil yok** ✓
 5. ~~Köprü?~~ → **CoplayDev/unity-mcp + VFX Toolkit custom tool'ları** ✓
-6. **2D (sprite/UI efektleri) de kapsamda mı?**
+6. ~~Efekt içi 2D sprite/doku çizimi?~~ → **Evet, çekirdek yetenek** (Texture & Vector Artist, §6) ✓
+7. **2D oyun efektleri** (SpriteRenderer sahneleri, UI Canvas üzerinde
+   partikül) de kapsamda mı? Bu, 3D sahnedeki efektin sprite kullanmasından
+   farklı: kamera, sorting layer ve UI render akışı değişir.
