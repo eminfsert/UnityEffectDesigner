@@ -39,8 +39,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Random seed applied to every particle system / visual effect. Default 1234.", Required = false)]
             public int? seed { get; set; }
 
-            [ToolParameter("Fixed framing radius in meters. Default: fit the effect's bounds across all times.", Required = false)]
+            [ToolParameter("Fixed framing radius in meters; disables auto framing so scale stays comparable between iterations. Default: auto.", Required = false)]
             public float? framing_radius { get; set; }
+
+            [ToolParameter("Re-frame each view on the pixels the effect actually covers across all times (centred, ~80% of the frame). Default true.", Required = false)]
+            public bool? auto_frame { get; set; }
 
             [ToolParameter("Vertical field of view in degrees. Default 35.", Required = false)]
             public float? fov { get; set; }

@@ -63,12 +63,14 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `backgrounds` | `["dark"]` | `dark, mid, light` or hex. Use `["dark","light"]` for readability checks |
 | `frame_size` | 320 | 64–1024 |
 | `seed` | 1234 | Change it to check the effect is not relying on one lucky random roll |
-| `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible |
+| `auto_frame` | true | Each view is re-framed on the pixels the effect actually covers over all times (centred, ~80% of the frame) |
+| `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
 
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never
 judge an effect from the numbers alone. Use `particleCounts` for density/performance,
+`viewFraming` (look-at point and distance per view) to repeat the same framing later,
 and `warnings` for anything that makes the frames unreliable.
 
 Limits: at most 24 times and 192 frames per call. VFX Graph stepping in edit mode is

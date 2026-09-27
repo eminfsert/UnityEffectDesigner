@@ -17,6 +17,13 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public string path;
     }
 
+    public sealed class ViewFramingInfo
+    {
+        public string view;
+        public float[] lookAt;
+        public float distance;
+    }
+
     public sealed class TimelineCaptureResult
     {
         public string target;
@@ -31,6 +38,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public List<int> particleCounts = new List<int>();
         public float[] boundsCenter;
         public float framingRadius;
+        /// <summary>Final camera placement per view (after auto framing).</summary>
+        public List<ViewFramingInfo> viewFraming = new List<ViewFramingInfo>();
         public int particleSystems;
         public int visualEffects;
         public int timeSampleables;
@@ -101,6 +110,20 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     result.boundsCenter = new[] { center.x, center.y, center.z };
                     result.framingRadius = radius;
 
+                    var framings = new ViewFraming[request.Views.Count];
+                    for (int v = 0; v < framings.Length; v++)
+                        framings[v] = new ViewFraming { Center = center, Distance = rig.DistanceToFit(radius), DepthRadius = radius };
+
+                    // A fixed framing radius means "keep scale comparable between captures", so skip auto framing then.
+                    if (request.AutoFrame && request.FramingRadius <= 0f && hasBounds)
+                        AutoFraming.Refine(rig, sampler, request.Views, request.Times, request.Backgrounds[0].Color, framings, result.warnings);
+
+                    for (int v = 0; v < framings.Length; v++)
+                    {
+                        var c = framings[v].Center;
+                        result.viewFraming.Add(new ViewFramingInfo { view = request.Views[v].Name, lookAt = new[] { c.x, c.y, c.z }, distance = framings[v].Distance });
+                    }
+
                     foreach (var view in request.Views)
                         foreach (var bg in request.Backgrounds)
                             result.rows.Add($"{view.Name}/{bg.Name}");
@@ -113,9 +136,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                         sampler.SampleAt(t);
 
                         int row = 0;
-                        foreach (var view in request.Views)
+                        for (int v = 0; v < request.Views.Count; v++)
                         {
-                            rig.Aim(center, radius, view);
+                            var view = request.Views[v];
+                            rig.Aim(framings[v].Center, framings[v].Distance, framings[v].DepthRadius, view);
                             foreach (var bg in request.Backgrounds)
                             {
                                 var frame = rig.Render(bg.Color);

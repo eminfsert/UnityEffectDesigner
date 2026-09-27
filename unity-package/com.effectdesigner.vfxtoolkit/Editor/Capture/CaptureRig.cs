@@ -85,19 +85,44 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 #endif
         }
 
-        /// <summary>Points the camera at <paramref name="center"/> from the given direction.</summary>
-        public void Aim(Vector3 center, float radius, CaptureView view)
+        public Transform CameraTransform => _camera.transform;
+        public float TanHalfFov => Mathf.Tan(Mathf.Max(1f, _camera.fieldOfView * 0.5f) * Mathf.Deg2Rad);
+
+        /// <summary>Camera distance at which a sphere of <paramref name="radius"/> fits the frame.</summary>
+        public float DistanceToFit(float radius)
         {
             float halfFov = Mathf.Max(1f, _camera.fieldOfView * 0.5f) * Mathf.Deg2Rad;
-            float distance = radius / Mathf.Sin(halfFov) * 1.05f;
+            return radius / Mathf.Sin(halfFov) * 1.05f;
+        }
 
+        /// <summary>
+        /// Points the camera at <paramref name="center"/> from the given direction.
+        /// <paramref name="depthRadius"/> is the effect's size, used only for clip planes.
+        /// </summary>
+        public void Aim(Vector3 center, float distance, float depthRadius, CaptureView view)
+        {
             Vector3 offset = Quaternion.Euler(view.Elevation, view.Azimuth, 0f) * (Vector3.back * distance);
             _camera.transform.position = center + offset;
             Vector3 up = Mathf.Abs(view.Elevation) > 80f ? Vector3.forward : Vector3.up;
             _camera.transform.LookAt(center, up);
 
-            _camera.nearClipPlane = Mathf.Max(0.01f, distance - radius * 2f);
-            _camera.farClipPlane = distance + radius * 4f;
+            _camera.nearClipPlane = Mathf.Max(0.01f, distance - depthRadius * 2f);
+            _camera.farClipPlane = distance + depthRadius * 4f;
+        }
+
+        /// <summary>Renders only the background and post-processing, with nothing in front of the camera.</summary>
+        public Texture2D RenderBackgroundOnly(Color background)
+        {
+            int mask = _camera.cullingMask;
+            _camera.cullingMask = 0;
+            try
+            {
+                return Render(background);
+            }
+            finally
+            {
+                _camera.cullingMask = mask;
+            }
         }
 
         /// <summary>Renders the current state and returns the frame (owned by the rig; copy before the next call).</summary>
