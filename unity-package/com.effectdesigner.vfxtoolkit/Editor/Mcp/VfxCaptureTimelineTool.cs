@@ -10,7 +10,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
         "vfx_capture_timeline",
         Description =
             "Render a VFX (Shuriken and/or VFX Graph) at several points in time, in edit mode and " +
-            "deterministically (fixed seeds, re-simulated from t=0), inside an isolated preview scene. " +
+            "deterministically (fixed seeds, played frame by frame at 60 fps from t=0, sub-emitters included), inside an isolated preview scene. " +
             "Writes one PNG per time x view x background and a contact sheet (columns = times, labelled; " +
             "rows = view/background). Returns absolute file paths: open the contact sheet image to judge " +
             "timing, shape, readability and color. Also returns alive particle counts per time and the " +
@@ -24,7 +24,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Effect to capture: prefab path (Assets/...prefab), scene hierarchy path, GameObject name, or instance id.")]
             public string target { get; set; }
 
-            [ToolParameter("Times in seconds since the effect started; 0 is the first rendered frame (one physics step). Default [0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]. Max 24.", Required = false)]
+            [ToolParameter("Times in seconds since the effect started; played at 60 fps, 0 is the first frame. Default [0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]. Max 24.", Required = false)]
             public float[] times { get; set; }
 
             [ToolParameter("Camera views: preset names or {name, azimuth, elevation} objects. Default [\"three_quarter\"].", Required = false)]

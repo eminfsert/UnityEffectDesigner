@@ -6,9 +6,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 {
     /// <summary>
     /// Puts an effect hierarchy into the exact visual state it has at a given time,
-    /// deterministically and in edit mode: particle systems are re-simulated from zero
-    /// with fixed seeds, VisualEffects are reinitialized and stepped, and every
-    /// <see cref="IVfxTimeSampleable"/> is asked to sample itself.
+    /// deterministically and in edit mode, and asks every <see cref="IVfxTimeSampleable"/>
+    /// to sample itself.
+    ///
+    /// The effect is played forward frame by frame at 60 fps, the way the game plays it,
+    /// rather than jumped to each time with one Simulate(t, restart) call. A single jump
+    /// proved unreliable in practice: short times (one frame) emitted nothing, so bursts at
+    /// t = 0 never showed, and death sub-emitters never fired. Stepping forward from a
+    /// seeded restart fixes both, and sampling times in ascending order costs one pass
+    /// over the timeline instead of one simulation per time.
     /// </summary>
     public sealed class EffectSampler
     {
@@ -16,15 +22,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public static readonly int CaptureTimeId = Shader.PropertyToID("_VFXToolkitTime");
         public static readonly int CaptureActiveId = Shader.PropertyToID("_VFXToolkitCapture");
 
-        const float VfxStep = 1f / 60f;
+        /// <summary>Simulation frame length. Time 0 is shown after the first frame.</summary>
+        public const float FrameStep = 1f / 60f;
 
-        /// <summary>
-        /// Shortest simulated time. Simulating 0 s emits nothing, so bursts at t = 0 (impact
-        /// flashes) would never show; and Simulate with fixedTimeStep advances in whole
-        /// Time.fixedDeltaTime steps, so anything shorter than one step also simulates nothing.
-        /// Time 0 is therefore rendered after one fixed step (0.02 s by default).
-        /// </summary>
-        public static float FirstFrame => Mathf.Max(1f / 60f, Time.fixedDeltaTime);
+        /// <summary>Simulated time of the current state; negative before the first sample.</summary>
+        float _current = -1f;
 
         readonly List<ParticleSystem> _rootParticleSystems = new List<ParticleSystem>();
         readonly ParticleSystem[] _allParticleSystems;
@@ -88,19 +90,29 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             foreach (var sampleable in _sampleables)
                 sampleable.SampleAt(time);
 
-            float simulated = Mathf.Max(time, FirstFrame);
+            float target = Mathf.Max(time, FrameStep);
+            if (_current < 0f || target < _current - FrameStep * 0.5f)
+                Restart();
 
             // Children (including sub-emitters) are simulated by their root system.
-            foreach (var ps in _rootParticleSystems)
-                ps.Simulate(simulated, true, true, true);
-
-            foreach (var vfx in _visualEffects)
+            while (_current + FrameStep * 0.5f < target)
             {
-                vfx.Reinit();
-                uint steps = (uint)Mathf.Max(1, Mathf.RoundToInt(simulated / VfxStep));
-                if (steps > 0)
-                    vfx.Simulate(VfxStep, steps);
+                foreach (var ps in _rootParticleSystems)
+                    ps.Simulate(FrameStep, true, false, false);
+                foreach (var vfx in _visualEffects)
+                    vfx.Simulate(FrameStep, 1);
+                _current += FrameStep;
             }
+        }
+
+        /// <summary>Back to t = 0 with the fixed seeds, so every pass over the timeline is identical.</summary>
+        void Restart()
+        {
+            foreach (var ps in _rootParticleSystems)
+                ps.Simulate(0f, true, true, false);
+            foreach (var vfx in _visualEffects)
+                vfx.Reinit();
+            _current = 0f;
         }
 
         /// <summary>Label per particle system / visual effect, in <see cref="CurrentCountsPerSystem"/> order.</summary>

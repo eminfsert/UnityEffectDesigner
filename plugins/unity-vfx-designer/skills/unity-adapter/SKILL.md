@@ -54,12 +54,12 @@ Parameter names are snake_case exactly as documented below.
 ## 4. `vfx_capture_timeline`
 
 Renders the effect in an isolated preview scene at the requested times, deterministic
-(fixed seeds, re-simulated from t = 0). Returns absolute paths.
+(fixed seeds, played frame by frame from t = 0). Returns absolute paths.
 
 | Parameter | Default | Notes |
 |---|---|---|
 | `target` | required | Prefab path (`Assets/...prefab`), scene path, name, or instance id |
-| `times` | `[0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds; 0 is the first rendered frame (1/60 s). Put extra samples around the spec's beats (anticipation, impact, dissipation) and across the whole life of every layer, including sub-emitters, so nothing happens only between samples |
+| `times` | `[0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds; 0 is the first frame (1/60 s). Put extra samples around the spec's beats (anticipation, impact, dissipation) and across the whole life of every layer, including sub-emitters, so nothing happens only between samples |
 | `views` | `["three_quarter"]` | `front, back, side, top, three_quarter, low` or `{name, azimuth, elevation}` |
 | `backgrounds` | `["dark"]` | `dark, mid, light` or hex. Use `["dark","light"]` for readability checks |
 | `frame_size` | 320 | 64–1024 |
@@ -75,8 +75,8 @@ and sub-emitter is active when the spec says it should be, `particleCounts` for 
 `viewFraming` (look-at point and distance per view) to repeat the same framing later,
 and `warnings` for anything that makes the frames unreliable.
 
-Times are simulated in whole physics steps (`Time.fixedDeltaTime`, 0.02 s by default), and
-t = 0 is shown after the first step so bursts at time 0 are visible.
+The effect is played frame by frame at 60 fps from a seeded restart, like the game plays
+it: t = 0 is the first frame, times are rounded to 1/60 s, sub-emitters fire.
 
 Limits: at most 24 times and 192 frames per call. VFX Graph stepping in edit mode is
 experimental. If VFX Graph frames look empty or identical, say so and verify in Play

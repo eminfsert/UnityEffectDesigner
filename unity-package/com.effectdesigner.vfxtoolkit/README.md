@@ -27,10 +27,11 @@ how the agents *see* motion and timing.
 - Works in **edit mode**, inside an isolated preview scene: the open scene is not modified
   and nothing else in it is rendered. The project's global Volumes (bloom, tonemapping)
   still apply.
-- Times are simulated in whole physics steps (`Time.fixedDeltaTime`, 0.02 s by default);
-  `t = 0` is shown after the first step so bursts at time 0 are visible.
-- **Deterministic:** every ParticleSystem gets a fixed seed and is re-simulated from
-  `t = 0` for each time, so two captures of the same effect are identical.
+- Plays the effect forward **frame by frame at 60 fps**, like the game does, so bursts at
+  `t = 0` show in the first frame and sub-emitters fire. Times are rounded to 1/60 s;
+  `t = 0` is the first frame.
+- **Deterministic:** every ParticleSystem gets a fixed seed and each pass restarts from
+  `t = 0`, so two captures of the same effect are identical.
 - Samples Shuriken (including sub-emitters and child systems), VFX Graph
   (`VisualEffect`, experimental in edit mode) and any component implementing
   `EffectDesigner.VFXToolkit.IVfxTimeSampleable` (mesh scale curves, lights, material
