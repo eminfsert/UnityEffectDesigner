@@ -46,11 +46,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
     {
         public static TimelineCaptureResult Run(CaptureRequest request, out string error)
         {
-            error = null;
             var source = ResolveTarget(request.Target, out error);
-            if (source == null)
-                return null;
+            return source != null ? Run(request, source, out error) : null;
+        }
 
+        /// <summary>Captures <paramref name="source"/> directly; <see cref="CaptureRequest.Target"/> is only used as a label.</summary>
+        public static TimelineCaptureResult Run(CaptureRequest request, GameObject source, out string error)
+        {
+            error = null;
             var result = new TimelineCaptureResult
             {
                 target = request.Target,
@@ -162,7 +165,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
             if (int.TryParse(target, out int instanceId))
             {
-                if (EditorUtility.InstanceIDToObject(instanceId) is GameObject byId)
+                if (ObjectIdCompat.FromInstanceId(instanceId) is GameObject byId)
                     return byId;
             }
 

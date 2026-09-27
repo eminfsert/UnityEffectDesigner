@@ -1,3 +1,4 @@
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,18 +13,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         static void CaptureSelection()
         {
             var selected = Selection.activeGameObject;
+            // The object is passed directly; the target string only names the capture.
             string target = AssetDatabase.Contains(selected)
                 ? AssetDatabase.GetAssetPath(selected)
-                : selected.GetInstanceID().ToString();
+                : selected.name;
 
-            var request = CaptureRequest.FromJson(new Newtonsoft.Json.Linq.JObject
+            var request = CaptureRequest.FromJson(new JObject
             {
                 ["target"] = target,
-                ["views"] = new Newtonsoft.Json.Linq.JArray("three_quarter", "side"),
-                ["backgrounds"] = new Newtonsoft.Json.Linq.JArray("dark", "light"),
+                ["views"] = new JArray("three_quarter", "side"),
+                ["backgrounds"] = new JArray("dark", "light"),
             }, out string error);
 
-            var result = request != null ? TimelineCapture.Run(request, out error) : null;
+            var result = request != null ? TimelineCapture.Run(request, selected, out error) : null;
             if (result == null)
             {
                 Debug.LogError($"[VFX Toolkit] {error}");
