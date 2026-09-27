@@ -37,9 +37,12 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 - [x] `unity-adapter` skill'i
 - [x] `vfx_apply_particle_recipe`: tek JSON tarifiyle tüm Shuriken modüllerini kurar/günceller
 - [x] `particle-recipes` skill'i (tarif formatı referansı)
-- [ ] `vfx_compile_report`, `vfx_project_check`
+- [x] `vfx_compile_report`: shader hatalarını satır numarasıyla + property sözleşmesi kontrolü
+- [x] `VFXCore.hlsl` + `Stylized Unlit` partikül shader'ı, tarif içinde satır içi materyal
+- [x] `vfx-shaders` skill'i
+- [ ] `vfx_project_check`
 - [ ] Ajanlar ve `/vfx:create` orkestrasyonu
-- [ ] VFX Graph şablon kütüphanesi, `VFXCore.hlsl`
+- [ ] VFX Graph şablon kütüphanesi
 
 Unity `.meta` dosyaları `tools/gen_unity_meta.py` ile üretilir; pakete yeni dosya
 eklerken çalıştırın.

@@ -35,6 +35,7 @@ static class Program
             "sub_emitters[0].system: 'Missing' is not a system in this recipe",
             "'stretched' is not a valid ParticleSystemRenderMode",
             "Parent cycle between systems: B, C",
+            "renderer.material.path: an inline material needs",
         };
         foreach (var e in expected)
         {

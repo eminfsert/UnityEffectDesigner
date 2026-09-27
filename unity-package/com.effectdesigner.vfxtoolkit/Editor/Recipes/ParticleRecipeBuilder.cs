@@ -233,7 +233,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                         EditorSceneManager.MarkSceneDirty(root.scene);
                     if (!string.IsNullOrEmpty(savePrefab))
                     {
-                        EnsureFolder(Path.GetDirectoryName(savePrefab).Replace('\\', '/'));
+                        MaterialBuilder.EnsureFolder(Path.GetDirectoryName(savePrefab).Replace('\\', '/'));
                         PrefabUtility.SaveAsPrefabAssetAndConnect(root, savePrefab, InteractionMode.UserAction);
                         result.prefab = savePrefab;
                     }
@@ -694,15 +694,6 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             for (var p = t.parent; p != null; p = p.parent)
                 path = p.name + "/" + path;
             return path;
-        }
-
-        static void EnsureFolder(string folder)
-        {
-            if (string.IsNullOrEmpty(folder) || AssetDatabase.IsValidFolder(folder))
-                return;
-            string parent = Path.GetDirectoryName(folder).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, Path.GetFileName(folder));
         }
     }
 }

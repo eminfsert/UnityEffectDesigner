@@ -104,7 +104,27 @@ Creates or updates a hierarchy of Shuriken particle systems from one JSON recipe
 }
 ```
 
+`renderer.material` / `trail_material` may be inline objects that create or patch the
+material asset: `{"path", "shader", "blend": "additive|alpha|premultiplied|multiply|soft_additive",
+"properties": {...}, "keywords": {...}}`. Material colors keep HDR intensity.
+
 The full format reference for agents is the plugin's `particle-recipes` skill.
+
+### `vfx_compile_report`
+
+Re-imports shaders and reports compile errors/warnings with file and line, and each
+shader's properties (name, type, HDR flag). `paths` accepts `.shader`/`.shadergraph`
+files, folders, and include files (`.hlsl`/`.cginc`: every shader under `Assets/` that
+includes it is checked). `expected_properties` (`{"_TintColor": "HDRColor", ...}`) checks
+a property contract and lists missing properties and type mismatches.
+
+## Shaders
+
+- `Shaders/VFXCore.hlsl`: shared URP effect functions: `VFXTime()` (capture-aware time),
+  scrolling and polar UVs, erosion with edge, posterize, soft particles, fresnel.
+- `EffectDesigner/Particles/Stylized Unlit`: particle shader with HDR tint, blend presets,
+  noise erosion driven by `_Erosion` + Custom1.x (vertex streams
+  `Position, Color, UV, Custom1X`), glowing erosion edge, posterized alpha, soft particles.
 
 ## Development
 

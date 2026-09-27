@@ -116,6 +116,8 @@ colors may also be `[[t, color], ...]` (max 8 color and 8 alpha keys) and
 `{"random_color": {gradient}}`.
 
 **Assets:** project paths, e.g. `"material": "Assets/VFX/ArcaneNova/Materials/M_Spark.mat"`.
+**Materials** can also be inline objects that create/patch the material asset in the same
+call: `{"path", "shader", "blend", "properties", "keywords"}`, described in the `vfx-shaders` skill.
 **Enums:** case-insensitive, snake_case fine (`"world"`, `"horizontal_billboard"`).
 
 ## Sub-emitters
@@ -149,7 +151,8 @@ without updating the shader. Stream names are Unity's `ParticleSystemVertexStrea
 - Stretched billboards need speed. With `velocity_scale` 0 and `length_scale` 1 they are
   static quads.
 - A new system without `renderer.material` gets URP's ParticlesUnlit as a placeholder
-  (the result warns). Give every layer its real material.
+  (the result warns). Give every layer its real material, usually
+  `EffectDesigner/Particles/Stylized Unlit` defined inline.
 - World-space simulation (`simulation_space: world`) for anything that should trail
   behind a moving emitter; local for effects glued to their transform.
 - `max_particles` caps bursts silently. Keep it above the largest burst.

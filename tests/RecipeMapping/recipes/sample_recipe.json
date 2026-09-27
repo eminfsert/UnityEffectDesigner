@@ -78,7 +78,28 @@
       },
       "renderer": {
         "render_mode": "billboard",
-        "sorting_fudge": -10
+        "sorting_fudge": -10,
+        "material": {
+          "path": "Assets/VFX/Test/M_Flash.mat",
+          "shader": "EffectDesigner/Particles/Stylized Unlit",
+          "blend": "additive",
+          "properties": {
+            "_TintColor": {
+              "color": [
+                1,
+                0.9,
+                0.7,
+                1
+              ],
+              "intensity": 2
+            },
+            "_PosterizeSteps": 3,
+            "_SoftParticles": true
+          },
+          "keywords": {
+            "_SOFTPARTICLES_ON": true
+          }
+        }
       }
     },
     {

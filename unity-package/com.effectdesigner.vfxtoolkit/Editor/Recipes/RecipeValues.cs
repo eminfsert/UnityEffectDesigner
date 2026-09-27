@@ -38,7 +38,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
     ///   colors:    "#RRGGBB[AA]" | "$palette_name" | {"color": "#..", "intensity": 2} (HDR, in stops) | [r, g, b, a]
     ///   gradients: "#hex" | ["#a", "#b"] (random between two) | {"gradient": {...}} | {"gradient_min": .., "gradient_max": ..}
     ///              | {"random_color": {...}} ; gradient = {"colors": [[t, color], ...] or [color, ...], "alphas": [[t, a], ...], "mode": "blend|fixed"}
-    ///   assets:    "Assets/Path/To/Asset.ext"
+    ///   assets:    "Assets/Path/To/Asset.ext" (materials may also be inline objects, see MaterialBuilder)
     ///   enums:     case-insensitive name, snake_case allowed ("stretch", "local", "sphere")
     /// </summary>
     static class RecipeValues
@@ -61,6 +61,13 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             if (type == typeof(AnimationCurve)) return ToAnimationCurve(token, where);
             if (type == typeof(Gradient)) return ToGradient(token, ctx, where);
             if (type == typeof(LayerMask)) return ToLayerMask(token, where);
+            // Inline material definition: validated now, created/updated when the recipe is applied.
+            // Kept out of ToObjectReference, which calls into the engine and cannot run in offline tests.
+            if (type == typeof(Material) && token is JObject materialRecipe)
+            {
+                MaterialBuilder.Validate(materialRecipe, where);
+                return new Deferred(() => MaterialBuilder.Build(materialRecipe, ctx, where));
+            }
             if (typeof(UnityEngine.Object).IsAssignableFrom(type)) return ToObjectReference(token, type, ctx, where);
             throw new RecipeException($"{where}: properties of type {type.Name} are not supported by recipes.");
         }
@@ -309,6 +316,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
         {
             if (token.Type == JTokenType.Null)
                 return null;
+
             string value = token.Value<string>();
             if (string.IsNullOrEmpty(value))
                 return null;

@@ -45,7 +45,8 @@ Parameter names are snake_case exactly as documented below.
 | Inspect or play a single Shuriken system | `manage_vfx` with `particle_*` actions (`particle_get_info`, `particle_play`) |
 | VFX Graph from template + exposed properties, events, seed | `manage_vfx` with `vfx_*` actions |
 | Line / trail renderers | `manage_vfx` with `line_*` / `trail_*` actions |
-| Shader files, materials | `manage_shader`, `manage_material` |
+| Shader files | write with `manage_shader` or the file tools, then **`vfx_compile_report`** (toolkit), see the `vfx-shaders` skill |
+| Materials | inline in particle recipes (`renderer.material` object), or `manage_material` |
 | Simple textures, import settings | `manage_texture` |
 | URP asset, renderer features, volumes | `manage_graphics` |
 | **See the effect over time** | **`vfx_capture_timeline`** (toolkit) |
