@@ -63,3 +63,46 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
 
 Without an MCP client you can use **Tools → Effect Designer → Capture Timeline Of
 Selection**.
+
+### `vfx_apply_particle_recipe`
+
+Creates or updates a hierarchy of Shuriken particle systems from one JSON recipe.
+
+- Every module and renderer property is addressable by its Unity name in snake_case
+  (bound by reflection, so nothing is left out), plus `emission.bursts`, `sub_emitters`,
+  `custom_data`, `renderer.vertex_streams` and texture-sheet `sprites`.
+- Curves: `1.5`, `[min, max]`, `[[t, v], ...]`, `{"ease": "ease_out_expo", "from": 1, "to": 0}`.
+  Colors: `#hex`, `$palette` names, HDR `{"color": "#hex", "intensity": stops}`.
+  Angles in degrees with a `_deg` suffix (`start_rotation_deg`).
+- **Validated before anything changes:** on any error nothing is modified and all problems
+  come back at once with "did you mean" suggestions. `dry_run` validates only.
+- Updates are patches; `"reset": true` rebuilds a system. Target a prefab path to edit it
+  in place, a scene object, or nothing to create a new root (`save_prefab` to save it).
+
+```json
+{
+  "name": "VFX_ArcaneSparks",
+  "save_prefab": "Assets/VFX/ArcaneSparks/VFX_ArcaneSparks.prefab",
+  "palette": { "core": "#FFF4D6", "accent": { "color": "#FFC247", "intensity": 2 } },
+  "systems": [
+    {
+      "name": "Sparks",
+      "main": { "loop": false, "duration": 1, "start_lifetime": [0.4, 0.8], "start_speed": [6, 12],
+                "start_size": [0.04, 0.09], "start_color": ["$accent", "$core"], "gravity_modifier": 0.6 },
+      "emission": { "rate_over_time": 0, "bursts": [{ "time": 0, "count": [30, 45] }] },
+      "shape": { "shape_type": "sphere", "radius": 0.2 },
+      "limit_velocity_over_lifetime": { "limit": 3, "dampen": 0.15 },
+      "size_over_lifetime": { "size": { "ease": "ease_out_quad", "from": 1, "to": 0 } },
+      "renderer": { "render_mode": "stretch", "velocity_scale": 0.08, "length_scale": 1 }
+    }
+  ]
+}
+```
+
+The full format reference for agents is the plugin's `particle-recipes` skill.
+
+## Development
+
+`tests/run.sh` (repo root) compiles the package against Unity reference assemblies in
+every conditional-compilation variant and checks that recipes map onto real Unity module
+properties. Needs the .NET 8 SDK; no Unity install required.

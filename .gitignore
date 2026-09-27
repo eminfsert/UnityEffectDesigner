@@ -1,0 +1,3 @@
+tests/.unity-refs/
+tests/**/bin/
+tests/**/obj/

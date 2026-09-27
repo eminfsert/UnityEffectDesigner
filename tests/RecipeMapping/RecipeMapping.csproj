@@ -1,0 +1,22 @@
+<!-- Runs particle recipes through the recipe compiler against real Unity types, outside Unity.
+     Checks that every key maps to a writable property and that bad recipes are rejected with useful messages. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0618</NoWarn>
+    <UnityRefs>$(MSBuildThisFileDirectory)../.unity-refs/lib</UnityRefs>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../Stubs/UrpStubs.cs" />
+    <Compile Include="../../unity-package/com.effectdesigner.vfxtoolkit/**/*.cs" />
+    <Reference Include="UnityEngine"><HintPath>$(UnityRefs)/UnityEngine.dll</HintPath></Reference>
+    <Reference Include="UnityEditor"><HintPath>$(UnityRefs)/UnityEditor.dll</HintPath></Reference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <None Include="recipes/*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="recipes" />
+  </ItemGroup>
+</Project>

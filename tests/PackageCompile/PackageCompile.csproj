@@ -1,0 +1,21 @@
+<!-- Compiles the VFX Toolkit package against Unity reference assemblies (see ../setup.sh).
+     Build with -p:Defines=... to check each conditional-compilation variant. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Defines Condition="'$(Defines)' == ''">VFXTOOLKIT_MCP;VFXTOOLKIT_URP</Defines>
+    <DefineConstants>$(Defines)</DefineConstants>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UnityRefs>$(MSBuildThisFileDirectory)../.unity-refs/lib</UnityRefs>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Stubs/*.cs" />
+    <Compile Include="../../unity-package/com.effectdesigner.vfxtoolkit/**/*.cs" />
+    <Reference Include="UnityEngine"><HintPath>$(UnityRefs)/UnityEngine.dll</HintPath></Reference>
+    <Reference Include="UnityEditor"><HintPath>$(UnityRefs)/UnityEditor.dll</HintPath></Reference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>

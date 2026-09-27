@@ -35,9 +35,15 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 
 - [x] `vfx_capture_timeline`: efekti zaman çizelgesi boyunca render edip kontakt sayfa üretir
 - [x] `unity-adapter` skill'i
-- [ ] `vfx_apply_particle_recipe`, `vfx_compile_report`, `vfx_project_check`
+- [x] `vfx_apply_particle_recipe`: tek JSON tarifiyle tüm Shuriken modüllerini kurar/günceller
+- [x] `particle-recipes` skill'i (tarif formatı referansı)
+- [ ] `vfx_compile_report`, `vfx_project_check`
 - [ ] Ajanlar ve `/vfx:create` orkestrasyonu
 - [ ] VFX Graph şablon kütüphanesi, `VFXCore.hlsl`
 
 Unity `.meta` dosyaları `tools/gen_unity_meta.py` ile üretilir; pakete yeni dosya
 eklerken çalıştırın.
+
+Unity kurmadan çalışan testler: `tests/run.sh` (.NET 8 SDK gerekir). Paketi tüm derleme
+varyantlarında Unity referans DLL'lerine karşı derler ve tariflerin gerçek Unity modül
+özelliklerine eşlendiğini doğrular.

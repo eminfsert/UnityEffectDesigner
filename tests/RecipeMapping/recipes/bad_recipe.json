@@ -1,0 +1,12 @@
+{
+  "dry_run": true,
+  "systems": [
+    { "name": "A", "main": { "start_lifetim": 1, "simulation_space": "wordl", "particle_count": 3 },
+      "emision": { "rate_over_time": 5 },
+      "shape": { "shape_type": "sphere", "radius": "big" },
+      "sub_emitters": [ { "system": "Missing" } ],
+      "renderer": { "render_mode": "stretched" } },
+    { "name": "B", "parent": "C" },
+    { "name": "C", "parent": "B" }
+  ]
+}

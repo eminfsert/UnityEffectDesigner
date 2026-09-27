@@ -41,7 +41,8 @@ Parameter names are snake_case exactly as documented below.
 | Job | Tool |
 |---|---|
 | Scene / GameObject / prefab / asset | `manage_scene`, `manage_gameobject`, `manage_prefabs`, `manage_asset` |
-| Shuriken basics (main, emission, shape, color/size/velocity over lifetime, noise, renderer, bursts) | `manage_vfx` with `particle_*` actions |
+| **Build or change Shuriken systems (all modules, sub-emitters, custom data, vertex streams, prefab save)** | **`vfx_apply_particle_recipe`** (toolkit), see the `particle-recipes` skill |
+| Inspect or play a single Shuriken system | `manage_vfx` with `particle_*` actions (`particle_get_info`, `particle_play`) |
 | VFX Graph from template + exposed properties, events, seed | `manage_vfx` with `vfx_*` actions |
 | Line / trail renderers | `manage_vfx` with `line_*` / `trail_*` actions |
 | Shader files, materials | `manage_shader`, `manage_material` |

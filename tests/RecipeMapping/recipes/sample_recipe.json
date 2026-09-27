@@ -1,0 +1,355 @@
+{
+  "name": "VFX_TestImpact",
+  "dry_run": true,
+  "palette": {
+    "core": [
+      1,
+      0.96,
+      0.84,
+      1
+    ],
+    "primary": [
+      0.61,
+      0.36,
+      1,
+      1
+    ],
+    "accent": [
+      1,
+      0.76,
+      0.28,
+      1
+    ]
+  },
+  "systems": [
+    {
+      "name": "Flash",
+      "main": {
+        "duration": 0.5,
+        "looping": false,
+        "start_lifetime": 0.18,
+        "start_speed": 0,
+        "start_size": [
+          2.2,
+          2.6
+        ],
+        "start_color": "$core",
+        "simulation_space": "world",
+        "max_particles": 4
+      },
+      "emission": {
+        "rate_over_time": 0,
+        "bursts": [
+          {
+            "time": 0,
+            "count": 1
+          }
+        ]
+      },
+      "shape": {
+        "enabled": false
+      },
+      "size_over_lifetime": {
+        "size": {
+          "ease": "spike",
+          "from": 0,
+          "to": 1
+        }
+      },
+      "color_over_lifetime": {
+        "color": {
+          "gradient": {
+            "colors": [
+              "$core",
+              "$primary"
+            ],
+            "alphas": [
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          }
+        }
+      },
+      "renderer": {
+        "render_mode": "billboard",
+        "sorting_fudge": -10
+      }
+    },
+    {
+      "name": "Sparks",
+      "main": {
+        "duration": 1,
+        "looping": false,
+        "start_lifetime": [
+          0.4,
+          0.8
+        ],
+        "start_speed": [
+          6,
+          12
+        ],
+        "start_size": [
+          0.04,
+          0.09
+        ],
+        "start_color": [
+          "$accent",
+          "$core"
+        ],
+        "gravity_modifier": 0.6
+      },
+      "emission": {
+        "rate_over_time": 0,
+        "bursts": [
+          {
+            "time": 0.02,
+            "count": [
+              30,
+              45
+            ]
+          }
+        ]
+      },
+      "shape": {
+        "shape_type": "sphere",
+        "radius": 0.2
+      },
+      "limit_velocity_over_lifetime": {
+        "limit": 3,
+        "dampen": 0.15
+      },
+      "size_over_lifetime": {
+        "size": [
+          [
+            0,
+            1
+          ],
+          [
+            0.7,
+            0.8
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "trails": {
+        "ratio": 0.5,
+        "lifetime": 0.2,
+        "width_over_trail": {
+          "ease": "linear",
+          "from": 1,
+          "to": 0
+        }
+      },
+      "sub_emitters": [
+        {
+          "system": "SparkPops",
+          "type": "death",
+          "inherit": [
+            "color"
+          ]
+        }
+      ],
+      "custom_data": {
+        "custom1": {
+          "x": {
+            "ease": "ease_in_quad",
+            "from": 0,
+            "to": 1
+          },
+          "y": 2
+        }
+      },
+      "renderer": {
+        "render_mode": "stretch",
+        "velocity_scale": 0.08,
+        "length_scale": 1,
+        "vertex_streams": [
+          "Position",
+          "Color",
+          "UV",
+          "Custom1XY"
+        ]
+      }
+    },
+    {
+      "name": "SparkPops",
+      "parent": "Sparks",
+      "main": {
+        "start_lifetime": 0.2,
+        "start_speed": 0,
+        "start_size": 0.3
+      },
+      "emission": {
+        "rate_over_time": 0,
+        "bursts": [
+          {
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Smoke",
+      "main": {
+        "start_rotation_deg": [
+          0,
+          360
+        ],
+        "start_lifetime": [
+          1.2,
+          1.8
+        ]
+      },
+      "texture_sheet_animation": {
+        "num_tiles_x": 4,
+        "num_tiles_y": 4,
+        "frame_over_time": {
+          "ease": "linear",
+          "from": 0,
+          "to": 1
+        }
+      },
+      "noise": {
+        "strength": 0.5,
+        "frequency": 0.8,
+        "scroll_speed": 0.3,
+        "quality": "medium"
+      },
+      "rotation_over_lifetime": {
+        "z_deg": [
+          -90,
+          90
+        ]
+      },
+      "velocity_over_lifetime": {
+        "space": "world",
+        "y": 0.6,
+        "orbital_y": 1.2,
+        "radial": -0.5
+      },
+      "color_by_speed": {
+        "range": [
+          0,
+          5
+        ]
+      },
+      "force_over_lifetime": {
+        "x": 0.1
+      },
+      "lights": {
+        "ratio": 0.1,
+        "intensity_multiplier": 2
+      },
+      "collision": {
+        "type": "world",
+        "bounce": 0.3
+      }
+    },
+    {
+      "name": "DocKeys",
+      "main": {
+        "start_delay": 0.1,
+        "start_size3d": true,
+        "start_size_x": 1,
+        "start_size_y": 2,
+        "start_size_z": 1,
+        "scaling_mode": "hierarchy",
+        "play_on_awake": true,
+        "stop_action": "destroy",
+        "loop": false,
+        "looping": false
+      },
+      "emission": {
+        "rate_over_distance": 2
+      },
+      "shape": {
+        "shape_type": "cone",
+        "radius_thickness": 0.5,
+        "angle": 25,
+        "arc": 360,
+        "arc_mode": "random",
+        "length": 1,
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "align_to_direction": true,
+        "random_direction_amount": 0.2
+      },
+      "velocity_over_lifetime": {
+        "x": 0,
+        "z": 1,
+        "orbital_x": 0,
+        "orbital_z": 0,
+        "speed_modifier": 1
+      },
+      "limit_velocity_over_lifetime": {
+        "drag": 0.5
+      },
+      "rotation_over_lifetime": {
+        "separate_axes": true,
+        "x_deg": 10,
+        "y_deg": 20
+      },
+      "noise": {
+        "damping": true,
+        "octave_count": 2
+      },
+      "texture_sheet_animation": {
+        "start_frame": [
+          0,
+          3
+        ],
+        "cycle_count": 1
+      },
+      "trails": {
+        "inherit_particle_color": true,
+        "mode": "per_particle",
+        "color_over_trail": "#ffffff"
+      },
+      "color_over_lifetime": {
+        "color": {
+          "gradient": {
+            "colors": [
+              [
+                0,
+                "#fff"
+              ],
+              [
+                1,
+                "#000"
+              ]
+            ],
+            "mode": "fixed"
+          }
+        }
+      },
+      "renderer": {
+        "render_mode": "horizontal_billboard",
+        "sort_mode": "distance",
+        "alignment": "view",
+        "material": null
+      }
+    }
+  ]
+}
