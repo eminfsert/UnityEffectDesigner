@@ -27,7 +27,8 @@ how the agents *see* motion and timing.
 - Works in **edit mode**, inside an isolated preview scene: the open scene is not modified
   and nothing else in it is rendered. The project's global Volumes (bloom, tonemapping)
   still apply.
-- `t = 0` is the first rendered frame (1/60 s), so bursts at time 0 are visible.
+- Times are simulated in whole physics steps (`Time.fixedDeltaTime`, 0.02 s by default);
+  `t = 0` is shown after the first step so bursts at time 0 are visible.
 - **Deterministic:** every ParticleSystem gets a fixed seed and is re-simulated from
   `t = 0` for each time, so two captures of the same effect are identical.
 - Samples Shuriken (including sub-emitters and child systems), VFX Graph
@@ -60,7 +61,8 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
 - `contact_sheet.png`: columns are times (stamped at the top), rows are view/background
   pairs in the order given by `rows` in the response.
 - One PNG per frame: `<view>_<background>_t<time>.png`.
-- `particleCounts` per time, framing bounds, and warnings.
+- `particleCounts` per time and `systemParticleCounts` per system per time, framing, and
+  warnings (e.g. a sub-emitter that never produced particles).
 
 Without an MCP client you can use **Tools → Effect Designer → Capture Timeline Of
 Selection**.

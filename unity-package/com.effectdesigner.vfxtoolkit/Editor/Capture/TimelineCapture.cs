@@ -36,6 +36,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public List<CapturedFrame> frames = new List<CapturedFrame>();
         /// <summary>Alive particles (Shuriken + VFX Graph) at each sampled time.</summary>
         public List<int> particleCounts = new List<int>();
+        /// <summary>Alive particles per system at each sampled time: shows when each layer (and each sub-emitter) is active.</summary>
+        public Dictionary<string, List<int>> systemParticleCounts = new Dictionary<string, List<int>>();
         public float[] boundsCenter;
         public float framingRadius;
         /// <summary>Final camera placement per view (after auto framing).</summary>
@@ -87,6 +89,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     if (sampler.VisualEffectCount > 0)
                         result.warnings.Add("VisualEffect (VFX Graph) edit-mode stepping is experimental; if frames look empty or identical, verify in Play Mode.");
 
+                    var labels = sampler.SystemLabels();
+                    foreach (var label in labels)
+                        result.systemParticleCounts[label] = new List<int>();
+
                     // Pass 1: sample every time to measure bounds, so framing is identical across frames.
                     Bounds total = default;
                     bool hasBounds = false;
@@ -94,11 +100,25 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     {
                         sampler.SampleAt(t);
                         result.particleCounts.Add(sampler.CurrentParticleCount());
+                        var perSystem = sampler.CurrentCountsPerSystem();
+                        for (int i = 0; i < labels.Count; i++)
+                            result.systemParticleCounts[labels[i]].Add(perSystem[i]);
                         if (sampler.TryGetVisibleBounds(out var b))
                         {
                             if (!hasBounds) { total = b; hasBounds = true; }
                             else total.Encapsulate(b);
                         }
+                    }
+
+                    // A sub-emitter that never has particles while its parent does usually means the
+                    // trigger never fired (e.g. its parent's particles outlive the sampled times).
+                    foreach (var (parent, child) in sampler.SubEmitterLinks())
+                    {
+                        var parentCounts = result.systemParticleCounts[labels[parent]];
+                        var childCounts = result.systemParticleCounts[labels[child]];
+                        if (parentCounts.Exists(c => c > 0) && childCounts.TrueForAll(c => c == 0))
+                            result.warnings.Add($"Sub-emitter '{labels[child]}' of '{labels[parent]}' had no particles at any sampled time. " +
+                                                "Check its trigger/probability and that the sampled times cover when it fires; if it looks right, verify in Play Mode.");
                     }
 
                     Vector3 center = hasBounds ? total.center : rig.Effect.transform.position;

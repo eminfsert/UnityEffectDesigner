@@ -19,10 +19,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         const float VfxStep = 1f / 60f;
 
         /// <summary>
-        /// Time 0 is shown as the first rendered frame. Simulating exactly 0 s emits nothing,
-        /// so bursts at t = 0 (impact flashes) would never appear in the first column.
+        /// Shortest simulated time. Simulating 0 s emits nothing, so bursts at t = 0 (impact
+        /// flashes) would never show; and Simulate with fixedTimeStep advances in whole
+        /// Time.fixedDeltaTime steps, so anything shorter than one step also simulates nothing.
+        /// Time 0 is therefore rendered after one fixed step (0.02 s by default).
         /// </summary>
-        public const float FirstFrame = 1f / 60f;
+        public static float FirstFrame => Mathf.Max(1f / 60f, Time.fixedDeltaTime);
 
         readonly List<ParticleSystem> _rootParticleSystems = new List<ParticleSystem>();
         readonly ParticleSystem[] _allParticleSystems;
@@ -99,6 +101,49 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 if (steps > 0)
                     vfx.Simulate(VfxStep, steps);
             }
+        }
+
+        /// <summary>Label per particle system / visual effect, in <see cref="CurrentCountsPerSystem"/> order.</summary>
+        public List<string> SystemLabels()
+        {
+            var labels = new List<string>();
+            foreach (var ps in _allParticleSystems) labels.Add(Unique(labels, ps.name));
+            foreach (var vfx in _visualEffects) labels.Add(Unique(labels, vfx.name + " (VFX Graph)"));
+            return labels;
+        }
+
+        static string Unique(List<string> existing, string name)
+        {
+            string label = name;
+            for (int i = 2; existing.Contains(label); i++)
+                label = $"{name} #{i}";
+            return label;
+        }
+
+        /// <summary>(parent index, sub-emitter index) pairs into <see cref="SystemLabels"/>.</summary>
+        public List<(int parent, int child)> SubEmitterLinks()
+        {
+            var links = new List<(int, int)>();
+            for (int p = 0; p < _allParticleSystems.Length; p++)
+            {
+                var sub = _allParticleSystems[p].subEmitters;
+                if (!sub.enabled) continue;
+                for (int i = 0; i < sub.subEmittersCount; i++)
+                {
+                    int c = System.Array.IndexOf(_allParticleSystems, sub.GetSubEmitterSystem(i));
+                    if (c >= 0) links.Add((p, c));
+                }
+            }
+            return links;
+        }
+
+        /// <summary>Alive particles per system right now, in <see cref="SystemLabels"/> order.</summary>
+        public List<int> CurrentCountsPerSystem()
+        {
+            var counts = new List<int>();
+            foreach (var ps in _allParticleSystems) counts.Add(ps.particleCount);
+            foreach (var vfx in _visualEffects) counts.Add(vfx.aliveParticleCount);
+            return counts;
         }
 
         public int CurrentParticleCount()

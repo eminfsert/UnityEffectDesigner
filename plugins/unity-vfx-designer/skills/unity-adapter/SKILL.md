@@ -70,9 +70,13 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
 
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never
-judge an effect from the numbers alone. Use `particleCounts` for density/performance,
+judge an effect from the numbers alone. Use `systemParticleCounts` (alive particles per system per time) to confirm every layer
+and sub-emitter is active when the spec says it should be, `particleCounts` for totals,
 `viewFraming` (look-at point and distance per view) to repeat the same framing later,
 and `warnings` for anything that makes the frames unreliable.
+
+Times are simulated in whole physics steps (`Time.fixedDeltaTime`, 0.02 s by default), and
+t = 0 is shown after the first step so bursts at time 0 are visible.
 
 Limits: at most 24 times and 192 frames per call. VFX Graph stepping in edit mode is
 experimental. If VFX Graph frames look empty or identical, say so and verify in Play

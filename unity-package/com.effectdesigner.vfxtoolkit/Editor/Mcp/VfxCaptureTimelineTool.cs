@@ -24,7 +24,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Effect to capture: prefab path (Assets/...prefab), scene hierarchy path, GameObject name, or instance id.")]
             public string target { get; set; }
 
-            [ToolParameter("Times in seconds since the effect started; 0 is the first rendered frame (1/60 s). Default [0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]. Max 24.", Required = false)]
+            [ToolParameter("Times in seconds since the effect started; 0 is the first rendered frame (one physics step). Default [0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]. Max 24.", Required = false)]
             public float[] times { get; set; }
 
             [ToolParameter("Camera views: preset names or {name, azimuth, elevation} objects. Default [\"three_quarter\"].", Required = false)]
