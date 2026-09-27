@@ -37,6 +37,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             var table = new System.Text.StringBuilder("time        " + string.Join(" ", System.Array.ConvertAll(result.times, t => ContactSheet.FormatTime(t).PadLeft(6))));
             foreach (var entry in result.systemParticleCounts)
                 table.Append("\n").Append(entry.Key.PadRight(12).Substring(0, 12)).Append(string.Join(" ", entry.Value.ConvertAll(c => c.ToString().PadLeft(6))));
+            table.Append($"\n\nColor ({result.colorStatsFor}): washed-out / saturation / hue");
+            foreach (var c in result.colorStats)
+                table.Append($"\n{ContactSheet.FormatTime(c.time),6}  {(c.washedOut < 0 ? "-" : c.washedOut.ToString("P0")),5}  {c.saturation,4:0.00}  {(c.hue < 0 ? "-" : c.hue.ToString("0") + "°")}");
             Debug.Log($"[VFX Toolkit] Captured {result.frames.Count} frames. Contact sheet: {result.contactSheet}\nAlive particles per system:\n{table}");
             EditorUtility.RevealInFinder(result.contactSheet);
         }

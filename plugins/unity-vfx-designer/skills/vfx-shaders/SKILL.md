@@ -59,6 +59,13 @@ created, or patched if it exists:
 - Property names are the shader's (`_TintColor`), with "did you mean" suggestions if wrong.
 - **HDR belongs here.** Material colors keep their intensity (in stops: 2.5 → ×5.7).
   Particle colors are 8-bit and only carry hue and alpha variation.
+- **Glow with color, not with white.** The final color is tint × particle color × texture.
+  A white HDR tint pushes every channel past 1, and tonemapping turns the palette white
+  (and often yellow-green). This was measured on a gold effect: 83–100% of its bright pixels
+  lost their color. Use a **saturated tint in the layer's hue** (gold `#FFB030`, not
+  `#FFFFFF`) at **0.5–1.5 stops**, so one channel stays low. White belongs to a small
+  core layer only. The capture's `colorStats.washedOut` and its "Washed out" warning
+  catch this.
 - For `[Toggle(KEYWORD)]` properties set both the float and the keyword.
 - Several systems can share one material path. Define it fully once and reference it by
   path elsewhere.

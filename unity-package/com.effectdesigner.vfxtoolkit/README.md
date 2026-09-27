@@ -64,6 +64,9 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
 - One PNG per frame: `<view>_<background>_t<time>.png`.
 - `particleCounts` per time and `systemParticleCounts` per system per time, framing, and
   warnings (e.g. a sub-emitter that never produced particles).
+- `colorStats` per time (first view/background): coverage, `washedOut` (share of bright
+  pixels that lost their color, e.g. from a white HDR tint), mean saturation, dominant hue.
+  Most frames washed out gives a warning.
 
 Without an MCP client you can use **Tools → Effect Designer → Capture Timeline Of
 Selection**.

@@ -45,6 +45,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public int particleSystems;
         public int visualEffects;
         public int timeSampleables;
+        /// <summary>Color measurements per time, for the first view on the first background (see colorStatsFor).</summary>
+        public List<FrameColorStats> colorStats = new List<FrameColorStats>();
+        public string colorStatsFor;
         public List<string> warnings = new List<string>();
     }
 
@@ -148,6 +151,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                         foreach (var bg in request.Backgrounds)
                             result.rows.Add($"{view.Name}/{bg.Name}");
 
+                    // Background-only reference for color stats (first view, first background).
+                    rig.Aim(framings[0].Center, framings[0].Distance, framings[0].DepthRadius, request.Views[0]);
+                    var statsReference = rig.RenderBackgroundOnly(request.Backgrounds[0].Color).GetPixels32();
+                    result.colorStatsFor = result.rows[0];
+
                     // Pass 2: render. Sampling once per time and rendering all views keeps it cheap.
                     var sheet = new ContactSheet(request.Times, result.rows.Count, request.FrameSize);
                     for (int column = 0; column < request.Times.Length; column++)
@@ -166,11 +174,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                 string file = Path.Combine(folder, $"{Sanitize(view.Name)}_{Sanitize(bg.Name)}_t{t.ToString("0.000", CultureInfo.InvariantCulture)}.png");
                                 File.WriteAllBytes(file, frame.EncodeToPNG());
                                 sheet.Place(frame, row, column);
+                                if (row == 0)
+                                    result.colorStats.Add(ColorStats.Measure(frame.GetPixels32(), statsReference, t));
                                 result.frames.Add(new CapturedFrame { time = t, view = view.Name, background = bg.Name, path = file });
                                 row++;
                             }
                         }
                     }
+
+                    WarnAboutColor(result);
 
                     string sheetPath = Path.Combine(folder, "contact_sheet.png");
                     File.WriteAllBytes(sheetPath, sheet.EncodePng());
@@ -190,6 +202,28 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Flags washed-out effects, the most common stylized-VFX failure: most measured frames
+        /// having mostly colorless bright pixels. A deliberately white core flash in one or two
+        /// frames does not trigger it.
+        /// </summary>
+        static void WarnAboutColor(TimelineCaptureResult result)
+        {
+            int measured = 0, washed = 0;
+            float worst = 0f;
+            foreach (var s in result.colorStats)
+            {
+                if (s.washedOut < 0f) continue;
+                measured++;
+                if (s.washedOut >= 0.5f) washed++;
+                worst = Mathf.Max(worst, s.washedOut);
+            }
+            if (measured > 0 && washed * 2 > measured)
+                result.warnings.Add($"Washed out: in {washed} of {measured} frames most bright pixels have lost their color (up to {worst:P0}). " +
+                                    "HDR intensity is too high or the tint is white. Use saturated tints with lower intensity, and keep " +
+                                    "white for a small core layer.");
         }
 
         /// <summary>

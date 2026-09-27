@@ -73,6 +73,8 @@ Renders the effect in an isolated preview scene at the requested times, determin
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never
 judge an effect from the numbers alone. Use `systemParticleCounts` (alive particles per system per time) to confirm every layer
 and sub-emitter is active when the spec says it should be, `particleCounts` for totals,
+`colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
+their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
 `viewFraming` (look-at point and distance per view) to repeat the same framing later,
 and `warnings` for anything that makes the frames unreliable.
 
