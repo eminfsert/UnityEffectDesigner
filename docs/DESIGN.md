@@ -1,6 +1,6 @@
 # Unity Effect Designer — Claude Code için VFX Ajan Stüdyosu
 
-> Durum: **Tasarım taslağı (v0.3)** — değerlendirme ve karar için.
+> Durum: **Tasarım taslağı (v0.4)** — değerlendirme ve karar için.
 
 ### Alınan kararlar
 
@@ -10,7 +10,7 @@
 | Partikül sistemi | **Shuriken + VFX Graph birlikte** — katman bazında seçim (bkz. §6.1) |
 | Stil | **Stilize** (el boyaması / anime / MOBA-ARPG çizgisi) — gerçekçi efekt kapsam dışı (bkz. §6.3) |
 | Platform | **PC / konsol** — mobil hedeflenmiyor; VFX Graph (compute) serbestçe kullanılır |
-| Unity bağlantısı | **Mevcut Unity MCP kullanılır**, kendi MCP sunucumuzu yazmayız. Plugin, Unity tarafına VFX'e özel bir C# editor paketi ekler (bkz. §4) |
+| Unity bağlantısı | **CoplayDev/unity-mcp (MCP for Unity)** — kullanıcıda kurulu. Kendi MCP sunucumuzu yazmayız; eksikleri bu MCP'nin **custom tool** mekanizmasıyla ekleyen küçük bir C# paketi yazarız (bkz. §4) |
 
 Kullanıcının betimlediği ya da referans görselle desteklediği bir efekti
 ("mor-altın renkli, önce içe çöken sonra patlayan bir büyü halkası") Unity
@@ -131,61 +131,44 @@ flowchart TD
 Ajanların Unity'yi göremediği bir sistem kör üretim yapar. Kaliteyi
 belirleyen tek en önemli bileşen **render alıp geri besleme döngüsü**dür.
 
-### Karar: MCP sunucusu yazmıyoruz, VFX araç paketi yazıyoruz
+### Karar: CoplayDev/unity-mcp + VFX Toolkit custom tool'ları
 
-Genel amaçlı Unity MCP sunucuları zaten var: Unity'nin resmi MCP'si
-(Unity AI paketi, Unity 6+) ve topluluk projeleri (ör. `CoplayDev/unity-mcp`).
-Bunlar sahne/GameObject yönetimi, asset işlemleri, script düzenleme, konsol
-okuma gibi **genel** işleri çözer. Bu katmanı yeniden yazmak gereksiz.
+Kullanıcıda kurulu olan [MCP for Unity](https://github.com/CoplayDev/unity-mcp)
+(CoplayDev) kullanılır. İncelemede (Eylül 2026, `main`) işimize yarayan hazır
+araçlar:
 
-Ama genel MCP'lerde **VFX'e özgü** işler yok. Bunlar bizim farkımız ve Unity
-tarafında C# olarak yaşamak zorunda:
-
-```
-Claude Code + plugin (ajanlar, skill'ler, komutlar)
-        │  mevcut Unity MCP (resmi ya da topluluk)
-        ▼
-Unity Editor
-  └── com.effectdesigner.vfxtoolkit   ← bizim C# paketimiz
-        ├── Recipe builder'lar (Shuriken, VFX Graph şablon, Material)
-        ├── Zamanlı render yakalama (kare şeridi, kontakt sayfa, GIF)
-        ├── Shader derleme raporu
-        └── Efekt profili (partikül sayısı, overdraw, draw call)
-```
-
-Paketin işlevleri mevcut MCP üzerinden şu yollardan biriyle çağrılır
-(hangisinin kullanılacağı seçilen MCP'nin yeteneğine bağlı):
-
-1. **Özel MCP aracı kaydı** — MCP, projedeki C# sınıflarını araç olarak
-   kaydetmeye izin veriyorsa (tercih edilen yol) araçlarımız doğrudan
-   `vfx_render_preview` gibi görünür.
-2. **Editor kodu / menü komutu çalıştırma** — Kayıt yoksa, MCP'nin "C#
-   çalıştır" ya da "menü öğesi çalıştır" aracıyla `VFXToolkit.Api.*`
-   statik metotları çağrılır. Argümanlar ve sonuçlar JSON dosyası
-   üzerinden (`Library/VFXToolkit/requests|responses`) taşınır.
-
-Plugin tarafında `unity-adapter` skill'i bu farkı soyutlar; ajanlar hangi
-MCP'nin kurulu olduğunu bilmez, sadece aşağıdaki mantıksal araçları kullanır.
-
-> Kesinleşmesi gereken: Kullanılacak MCP'nin (tercihen resmi Unity MCP)
-> özel araç kaydını destekleyip desteklemediği MVP-1'in ilk işi olarak
-> doğrulanacak.
-
-### Mantıksal araçlar (VFX Toolkit API)
-
-| Araç | İşlev | Kaynak |
+| İhtiyaç | MCP for Unity'de hazır | Yeterli mi? |
 |---|---|---|
-| `project_info` | Unity sürümü, URP ayarları (Opaque/Depth Texture, HDR, bloom), renk uzayı, yüklü paketler | Toolkit |
-| `refresh`, `console` | Asset refresh, konsol hataları | Mevcut MCP |
-| `compile_shader` | Shader'ı derler, hata/uyarıları satır numarasıyla döner | Toolkit |
-| `apply_material_recipe` | JSON → Material (shader, property, keyword, render queue) | Toolkit |
-| `apply_particle_recipe` | JSON → ParticleSystem hiyerarşisi (tüm modüller) | Toolkit |
-| `apply_vfxgraph_recipe` | Şablon `.vfx` kopyala → exposed property'leri ata → `VisualEffect` kur | Toolkit |
-| `list_vfx_templates` | Şablonları ve exposed property imzalarını listele | Toolkit |
-| `import_mesh` / `import_texture` | Import ayarlarıyla (sRGB, wrap, mip, flipbook) | Toolkit |
-| `build_prefab` | Hiyerarşiyi prefab olarak kaydet | Toolkit |
-| `render_preview` | Efekti önizleme sahnesinde **deterministik** oynat (`ParticleSystem.Simulate` / `VisualEffect.Simulate`), verilen zamanlarda/açılarda PNG + kontakt sayfa + GIF | Toolkit |
-| `profile_effect` | Maks. partikül sayısı, overdraw render'ı, draw call | Toolkit |
+| Sahne, GameObject, prefab, asset, paket | `manage_scene`, `manage_gameobject`, `manage_prefabs`, `manage_asset`, `manage_packages` | ✅ |
+| Shuriken | `manage_vfx` → `particle_*`: main, emission, shape, color/size/velocity over lifetime, noise, renderer, burst; collision/trails/lights modüllerini sadece **açıp kapatma** | ⚠️ Kısmi |
+| VFX Graph | `manage_vfx` → `vfx_*`: şablondan asset oluşturma, exposed property atama (float…gradient, texture, mesh, curve), event, seed, oynatma | ✅ Tam da §6.1'deki "şablon + exposed property" stratejisi |
+| Line / Trail Renderer | `line_*` (daire, yay, bezier), `trail_*` | ✅ |
+| Shader / materyal | `manage_shader` (create/read/update/delete), `manage_material` | ⚠️ Derleme hatası raporu yok (konsoldan okunabilir) |
+| Doku | `manage_texture`: pattern, gradient, noise, import ayarları | ⚠️ Temel; stilize dokular bizim araçlarımızla |
+| URP ayarları | `manage_graphics`: pipeline, renderer feature, Volume, rendering stats | ✅ |
+| Görme | `manage_camera` → `screenshot`: inline PNG, `view_target`, 6 açılı kontakt sayfa, orbit | ⚠️ Açı var, **zaman yok** |
+| Profil | `manage_profiler`, rendering stats | ✅ Temel |
+| Kaçış kapısı | `execute_code` (editor'de C# çalıştır), `batch_execute` | ✅ |
+| **Genişletme** | **`[McpForUnityTool]` attribute'lu editor sınıfları otomatik olarak MCP aracı olur** | ✅ Kilit özellik |
+
+Not: `manage_vfx` gibi araçlar `vfx` grubundadır ve varsayılan olarak gizli
+olabilir; `unity-adapter` skill'i oturum başında `manage_tools` ile açar.
+
+**Eksik kalan ve bizim yazacağımız custom tool'lar** (hepsi
+`com.effectdesigner.vfxtoolkit` paketinde, `[McpForUnityTool]` ile otomatik
+kaydolur — ayrı sunucu, ayrı port, ayrı kurulum yok):
+
+| Custom tool | Neden gerekli |
+|---|---|
+| `vfx_capture_timeline` | **En kritik araç.** Efekti edit mode'da `ParticleSystem.Simulate(t)` / `VisualEffect.Simulate` ile belirli zamanlara sarar, her zaman × açı için kare alır; kontakt sayfa + GIF döner. Mevcut `screenshot` sadece o anki kareyi çeker — hareketi değerlendiremeyiz. |
+| `vfx_apply_particle_recipe` | Tek çağrıda tüm hiyerarşi ve **tüm modüller**: texture sheet animation (flipbook), sub-emitter, rotation, limit velocity, force, custom data, **custom vertex stream**, trail ayarları. Mevcut araçta bunlar yok ve katman başına ~15 ayrı çağrı gerekir. |
+| `vfx_compile_report` | `ShaderUtil.GetShaderMessages` ile shader hatalarını satır numarasıyla döner; Shader Graph/VFX Graph derleme durumunu kontrol eder. |
+| `vfx_project_check` | URP'de Opaque/Depth Texture, HDR, bloom eşiği, Decal feature, VFX Graph/Shader Graph paket sürümleri — tek raporda. |
+| `vfx_profile_effect` | Efekt oynarken maks. partikül sayısı, overdraw görünümü karesi, draw call. |
+
+Geri kalan her şey MCP for Unity'nin hazır araçlarıyla yapılır. İlk
+yaklaşımda eksik bir şey çıkarsa önce `execute_code` ile prototiplenir,
+sık kullanılıyorsa custom tool'a terfi ettirilir.
 
 ### Kritik tasarım kararı: **Deklaratif recipe → güvenilir builder**
 
@@ -503,7 +486,7 @@ unity-vfx-designer/
 │   └── perf-engineer.md
 ├── skills/
 │   ├── vfx-director/            # orkestrasyon protokolü, spec yazımı
-│   ├── unity-adapter/           # kurulu Unity MCP'yi VFX Toolkit API'sine bağlar
+│   ├── unity-adapter/           # MCP for Unity araç haritası, tool group açma, yaygın çağrı kalıpları
 │   ├── vfx-fundamentals/        # zamanlama, şekil dili, renk, okunurluk
 │   ├── effect-archetypes/       # arketip şablonları
 │   ├── shuriken-reference/
@@ -527,8 +510,8 @@ unity-vfx-designer/
 │   ├── mesh_gen.py
 │   └── contact_sheet.py
 └── unity-package/
-    └── com.effectdesigner.vfxtoolkit/   # mevcut Unity MCP üzerinden çağrılır
-        ├── Editor/              # API, Shuriken + VFX Graph builder'ları, render yakalama, profiler
+    └── com.effectdesigner.vfxtoolkit/   # MCP for Unity'ye [McpForUnityTool] ile custom tool ekler
+        ├── Editor/              # vfx_capture_timeline, vfx_apply_particle_recipe, vfx_compile_report, …
         ├── Runtime/             # EffectController (iki backend'i birlikte yönetir), pool arayüzü
         ├── Shaders/             # VFXCore.hlsl, Shader Graph şablonları
         └── VFXTemplates/        # İnsan eliyle yapılmış .vfx şablonları + property imzaları (JSON)
@@ -543,7 +526,9 @@ description: Unity 6 URP VFX shader uzmanı. Shuriken için HLSL/ShaderLab,
   VFX Graph için Custom Function tabanlı Shader Graph sarmalayıcıları yazar
   (dissolve, erosion, distortion, flipbook, fresnel).
   manifest.yaml'daki property ve vertex stream sözleşmesine uyar.
-tools: Read, Write, Edit, Glob, Grep, <kurulu Unity MCP araçları>
+tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__manage_shader,
+  mcp__unityMCP__manage_material, mcp__unityMCP__read_console,
+  mcp__unityMCP__vfx_compile_report   # MCP sunucu adı kullanıcının kurulumuna göre
 skills: urp-vfx-shaders, vfx-fundamentals, unity-adapter
 ---
 Sen kıdemli bir VFX teknik sanatçısısın...
@@ -565,7 +550,7 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 
 | Faz | Kapsam | Başarı kriteri |
 |---|---|---|
-| **MVP-1** | Mevcut Unity MCP ile entegrasyonun doğrulanması; VFX Toolkit C# paketi (compile, Shuriken recipe builder, VFX Graph şablon+property builder, **render yakalama**); Architect, Texture&Vector, Shader (`VFXCore.hlsl` + `.shader` + Shader Graph sarmalayıcı, stilize/stepped), Particle (Shuriken + ~8 VFX Graph şablonu), Mesh, Critic; 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan, iki backend'i karışık kullanan prefab |
+| **MVP-1** | MCP for Unity entegrasyonu (`unity-adapter` skill); VFX Toolkit custom tool'ları (`vfx_capture_timeline`, `vfx_apply_particle_recipe`, `vfx_compile_report`, `vfx_project_check`); VFX Graph şablon kütüphanesi (MCP'nin `vfx_*` araçlarıyla doldurulur); Architect, Texture&Vector, Shader (`VFXCore.hlsl` + `.shader` + Shader Graph sarmalayıcı, stilize/stepped), Particle (Shuriken + ~8 VFX Graph şablonu), Mesh, Critic; 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan, iki backend'i karışık kullanan prefab |
 | **MVP-2** | Motion Designer (kamera/ışık), Performance Engineer, konsept panosu, `/vfx:iterate`, `/vfx:variant`, VFX Graph modüler kompozisyon + Custom HLSL blokları | Stilize MOBA kalitesine yaklaşan katmanlı efektler; PC bütçe raporu |
 | **MVP-3** | Programatik VFX Graph kurucu (deneysel), Style Librarian (proje hafızası), `/vfx:explore` A/B/C | Proje stilini öğrenen, tutarlı efekt setleri üreten stüdyo |
 
@@ -581,7 +566,7 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 | VFX Graph şablon kütüphanesinin kalitesi tüm sonucu belirler | Şablonlar insan eliyle yapılır/gözden geçirilir; her şablonun referans render'ı ve property imzası testlerle korunur |
 | Token maliyeti (çok ajan, çok tur) | Skill'lerle ihtiyaç anında bilgi yükleme; tur limiti; ucuz model yardımcı işlerde; sadece değişen katmanın yeniden üretimi |
 | Editor açık olmadan render yok | Yerel çalışma şartı; GPU'lu batchmode yedeği |
-| Mevcut Unity MCP'nin API'si değişebilir / özel araç kaydı olmayabilir | `unity-adapter` skill'i ile soyutlama; yedek yol olarak "editor kodu çalıştır" + JSON istek/yanıt dosyaları |
+| MCP for Unity'nin araç adları/parametreleri sürümle değişebilir | Desteklenen sürüm aralığı belgelenir; araç haritası tek yerde (`unity-adapter`); kritik işler zaten bizim custom tool'larımızda |
 | Renk uzayı / HDR tutarsızlığı | VFX Toolkit Linear/Gamma ve HDR ayarını okur, spec renkleri buna göre dönüştürülür |
 
 ---
@@ -592,7 +577,5 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 2. ~~Partikül önceliği?~~ → **Shuriken + VFX Graph birlikte** ✓
 3. ~~Stil?~~ → **Stilize** ✓
 4. ~~Platform?~~ → **PC / konsol, mobil yok** ✓
-5. ~~Köprü?~~ → **Mevcut Unity MCP + bizim VFX Toolkit C# paketimiz** ✓
-6. **Hangi Unity MCP?** Resmi Unity MCP (Unity AI paketi, Unity Cloud
-   bağlantısı ister) mi, topluluk MCP'si mi (ör. `CoplayDev/unity-mcp`)?
-7. **2D (sprite/UI efektleri) de kapsamda mı?**
+5. ~~Köprü?~~ → **CoplayDev/unity-mcp + VFX Toolkit custom tool'ları** ✓
+6. **2D (sprite/UI efektleri) de kapsamda mı?**
