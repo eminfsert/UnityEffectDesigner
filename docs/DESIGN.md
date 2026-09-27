@@ -1,6 +1,6 @@
 # Unity Effect Designer — Claude Code için VFX Ajan Stüdyosu
 
-> Durum: **Tasarım taslağı (v0.2)** — değerlendirme ve karar için.
+> Durum: **Tasarım taslağı (v0.3)** — değerlendirme ve karar için.
 
 ### Alınan kararlar
 
@@ -8,6 +8,9 @@
 |---|---|
 | Motor / pipeline | **Unity 6 + URP** (HDRP ve Built-in kapsam dışı) |
 | Partikül sistemi | **Shuriken + VFX Graph birlikte** — katman bazında seçim (bkz. §6.1) |
+| Stil | **Stilize** (el boyaması / anime / MOBA-ARPG çizgisi) — gerçekçi efekt kapsam dışı (bkz. §6.3) |
+| Platform | **PC / konsol** — mobil hedeflenmiyor; VFX Graph (compute) serbestçe kullanılır |
+| Unity bağlantısı | **Mevcut Unity MCP kullanılır**, kendi MCP sunucumuzu yazmayız. Plugin, Unity tarafına VFX'e özel bir C# editor paketi ekler (bkz. §4) |
 
 Kullanıcının betimlediği ya da referans görselle desteklediği bir efekti
 ("mor-altın renkli, önce içe çöken sonra patlayan bir büyü halkası") Unity
@@ -25,7 +28,7 @@ uzmanlaşmış ajanlardan oluşan bir "VFX stüdyosu".
 | **Subagent'lar** (`agents/*.md`) | Her uzmanın ayrı sistem promptu, ayrı araç yetkisi, ayrı bağlamı olmalı | Hayır |
 | **Skill'ler** (`skills/*/SKILL.md`) | Shuriken modülleri, HLSL tarifleri, VFX teorisi gibi büyük bilgi paketleri *ihtiyaç anında* yüklenir; ajan bağlamları şişmez | Evet ama tek başına orkestrasyon yapamaz |
 | **Komutlar** (`/vfx:create`, `/vfx:iterate` …) | Kullanıcının giriş noktası, orkestrasyon akışını tanımlar | Hayır |
-| **MCP sunucusu** (Unity köprüsü) | Ajanların Unity'yi *görmesi ve kontrol etmesi*: derleme, prefab kurma, **render alma** | Hayır |
+| **Unity bağlantısı** (mevcut Unity MCP + VFX Toolkit C# paketi) | Ajanların Unity'yi *görmesi ve kontrol etmesi*: derleme, prefab kurma, **render alma** | Hayır |
 | **Hook'lar** | Shader yazılınca otomatik derle, SVG yazılınca otomatik rasterize et | Hayır |
 
 Plugin tüm bunları tek paket olarak dağıtır; `/plugin install` ile kurulur.
@@ -56,7 +59,7 @@ Plugin tüm bunları tek paket olarak dağıtır; `/plugin install` ile kurulur.
 |---|---|
 | **Mesh Artist** | Stilize VFX'in (MOBA/ARPG tarzı) büyük kısmı mesh'tir: swirl, slash arc, koni, halka, şok dalgası, trail mesh. Python/C# ile prosedürel mesh (+UV düzeni) üretir. Sadece partikülle yapılan efektler "ucuz" görünür. |
 | **Motion & Timing Designer** | Efektin *hissi* zamanlamadan gelir: anticipation → impact → dissipation. AnimationCurve'ler, easing, beat haritası; ayrıca **efekt dışı etkiler**: kamera sarsıntısı, ışık flaşı, bloom/chromatic pulse, hit-stop, ekran distorsiyonu. |
-| **Performance Engineer** | Overdraw, partikül sayısı, shader instruction, batch sayısı, mobil bütçe; LOD varyantları üretir. "Güzel ama oyunu kasan" efekti engeller. |
+| **Performance Engineer** | Overdraw, partikül sayısı, shader instruction, batch sayısı, PC/konsol bütçesi; LOD varyantları üretir. "Güzel ama oyunu kasan" efekti engeller. |
 | **Lighting & Post Artist** | Point light flicker, emissive/HDR renk kalibrasyonu, bloom eşiği ile uyum, Volume override'ları. |
 | **Style Librarian (Hafıza)** | Projenin "stil İncili": palet, çizgi dili, daha önce onaylanmış efektler, kullanıcının tercihleri ("daha az duman sever"). Mevcut texture/shader'ları yeniden kullanır, tutarlılık sağlar. |
 | **Audio Cue Designer** *(opsiyonel)* | Ses üretmez; efektin beat haritasına göre SFX tetik noktaları ve ses brief'i yazar. |
@@ -84,7 +87,7 @@ flowchart TD
     end
 
     P1 --> PA[Particle Artist<br/>materyal/mesh/texture referanslarıyla]
-    PA --> AS[Architect: Montaj<br/>Unity köprüsü ile prefab kurulumu]
+    PA --> AS[Architect: Montaj<br/>VFX Toolkit ile prefab kurulumu]
     AS --> R[Unity: render kareleri + kontakt sayfa + GIF]
     R --> C[Critic: puanlama + düzeltme listesi]
     C -->|puan < eşik ve tur < N| ROUTE[Director: düzeltmeleri<br/>ilgili uzmana yönlendir]
@@ -98,7 +101,7 @@ flowchart TD
 1. **Intake** — Director eksik bilgiyi sorar (en fazla 3–4 soru): efekt türü
    (tek seferlik / loop / projectile), 2D mi 3D mi, hedef platform, stil,
    oyun içi ölçek ve süre. Proje bilgisi (Unity sürümü, URP/HDRP, yüklü
-   paketler) köprüden otomatik okunur — kullanıcıya sorulmaz.
+   paketler) VFX Toolkit'ten otomatik okunur — kullanıcıya sorulmaz.
 2. **Ayrıştırma** — Referans görsel/brief katmanlara bölünür. Örn. *Ateş topu
    çarpması*: çekirdek flaş · şok dalgası halkası · kıvılcımlar · duman ·
    kor parçaları · zemin izi (decal) · ışık · kamera sarsıntısı.
@@ -111,7 +114,7 @@ flowchart TD
 5. **Paralel üretim** — Texture, Shader, Mesh, Motion aynı anda; Particle
    Artist onların sözleşmedeki isimlerine referans vererek çalışır (gerekirse
    yer tutucu ile başlar).
-6. **Montaj** — Köprü üzerinden: asset import, shader derleme, materyal
+6. **Montaj** — VFX Toolkit üzerinden: asset import, shader derleme, materyal
    oluşturma, recipe → ParticleSystem kurulumu, prefab kaydı.
 7. **Render & Eleştiri** — Sabit kamera açılarından belirli zamanlarda kareler
    (ör. t = 0.0, 0.1, 0.25, 0.5, 1.0, 2.0 s), koyu ve açık arka plan,
@@ -123,35 +126,66 @@ flowchart TD
 
 ---
 
-## 4. Unity Köprüsü — Ekibin Gözleri ve Elleri
+## 4. Unity Bağlantısı — Ekibin Gözleri ve Elleri
 
 Ajanların Unity'yi göremediği bir sistem kör üretim yapar. Kaliteyi
 belirleyen tek en önemli bileşen **render alıp geri besleme döngüsü**dür.
 
+### Karar: MCP sunucusu yazmıyoruz, VFX araç paketi yazıyoruz
+
+Genel amaçlı Unity MCP sunucuları zaten var: Unity'nin resmi MCP'si
+(Unity AI paketi, Unity 6+) ve topluluk projeleri (ör. `CoplayDev/unity-mcp`).
+Bunlar sahne/GameObject yönetimi, asset işlemleri, script düzenleme, konsol
+okuma gibi **genel** işleri çözer. Bu katmanı yeniden yazmak gereksiz.
+
+Ama genel MCP'lerde **VFX'e özgü** işler yok. Bunlar bizim farkımız ve Unity
+tarafında C# olarak yaşamak zorunda:
+
 ```
-Claude Code ──stdio──> MCP Sunucusu (TypeScript/Python)
-                           │ HTTP/WebSocket (localhost)
-                           ▼
-                 Unity Editor Paketi (C#, com.effectdesigner.bridge)
+Claude Code + plugin (ajanlar, skill'ler, komutlar)
+        │  mevcut Unity MCP (resmi ya da topluluk)
+        ▼
+Unity Editor
+  └── com.effectdesigner.vfxtoolkit   ← bizim C# paketimiz
+        ├── Recipe builder'lar (Shuriken, VFX Graph şablon, Material)
+        ├── Zamanlı render yakalama (kare şeridi, kontakt sayfa, GIF)
+        ├── Shader derleme raporu
+        └── Efekt profili (partikül sayısı, overdraw, draw call)
 ```
 
-### MCP araçları (taslak)
+Paketin işlevleri mevcut MCP üzerinden şu yollardan biriyle çağrılır
+(hangisinin kullanılacağı seçilen MCP'nin yeteneğine bağlı):
 
-| Araç | İşlev |
-|---|---|
-| `unity_project_info` | Unity sürümü, render pipeline, renk uzayı, yüklü paketler (VFX Graph, Shader Graph) |
-| `unity_refresh` | AssetDatabase refresh/import |
-| `unity_compile_shader` | Shader'ı derler, hata/uyarıları satır numarasıyla döner |
-| `unity_apply_material_recipe` | JSON → Material (shader, property, keyword, render queue) |
-| `unity_apply_particle_recipe` | JSON → ParticleSystem hiyerarşisi (tüm modüller) |
-| `unity_apply_vfxgraph_recipe` | Şablon `.vfx` kopyala → exposed property'leri ata (texture, gradient, curve, sayı, mesh) → `VisualEffect` bileşeni kur |
-| `unity_list_vfx_templates` | Şablon kütüphanesindeki grafikleri ve exposed property imzalarını listele |
-| `unity_import_mesh` / `unity_import_texture` | Import ayarlarıyla (sRGB, wrap, mip, sprite mode, flipbook) |
-| `unity_build_prefab` | Hiyerarşiyi prefab olarak kaydet |
-| `unity_render_preview` | Önizleme sahnesinde efekti oynat, verilen zamanlarda/açılarda PNG kareler + GIF döndür |
-| `unity_profile_effect` | Maks. partikül sayısı, overdraw görünümü render'ı, draw call, shader varyant sayısı |
-| `unity_console` | Konsol hatalarını oku |
-| `unity_run_editor_method` | Kaçış kapısı: özel editor script çalıştır |
+1. **Özel MCP aracı kaydı** — MCP, projedeki C# sınıflarını araç olarak
+   kaydetmeye izin veriyorsa (tercih edilen yol) araçlarımız doğrudan
+   `vfx_render_preview` gibi görünür.
+2. **Editor kodu / menü komutu çalıştırma** — Kayıt yoksa, MCP'nin "C#
+   çalıştır" ya da "menü öğesi çalıştır" aracıyla `VFXToolkit.Api.*`
+   statik metotları çağrılır. Argümanlar ve sonuçlar JSON dosyası
+   üzerinden (`Library/VFXToolkit/requests|responses`) taşınır.
+
+Plugin tarafında `unity-adapter` skill'i bu farkı soyutlar; ajanlar hangi
+MCP'nin kurulu olduğunu bilmez, sadece aşağıdaki mantıksal araçları kullanır.
+
+> Kesinleşmesi gereken: Kullanılacak MCP'nin (tercihen resmi Unity MCP)
+> özel araç kaydını destekleyip desteklemediği MVP-1'in ilk işi olarak
+> doğrulanacak.
+
+### Mantıksal araçlar (VFX Toolkit API)
+
+| Araç | İşlev | Kaynak |
+|---|---|---|
+| `project_info` | Unity sürümü, URP ayarları (Opaque/Depth Texture, HDR, bloom), renk uzayı, yüklü paketler | Toolkit |
+| `refresh`, `console` | Asset refresh, konsol hataları | Mevcut MCP |
+| `compile_shader` | Shader'ı derler, hata/uyarıları satır numarasıyla döner | Toolkit |
+| `apply_material_recipe` | JSON → Material (shader, property, keyword, render queue) | Toolkit |
+| `apply_particle_recipe` | JSON → ParticleSystem hiyerarşisi (tüm modüller) | Toolkit |
+| `apply_vfxgraph_recipe` | Şablon `.vfx` kopyala → exposed property'leri ata → `VisualEffect` kur | Toolkit |
+| `list_vfx_templates` | Şablonları ve exposed property imzalarını listele | Toolkit |
+| `import_mesh` / `import_texture` | Import ayarlarıyla (sRGB, wrap, mip, flipbook) | Toolkit |
+| `build_prefab` | Hiyerarşiyi prefab olarak kaydet | Toolkit |
+| `render_preview` | Efekti önizleme sahnesinde **deterministik** oynat (`ParticleSystem.Simulate` / `VisualEffect.Simulate`), verilen zamanlarda/açılarda PNG + kontakt sayfa + GIF | Toolkit |
+| `profile_effect` | Maks. partikül sayısı, overdraw render'ı, draw call | Toolkit |
 
 ### Kritik tasarım kararı: **Deklaratif recipe → güvenilir builder**
 
@@ -159,7 +193,7 @@ Ajanlar `.prefab`/`.mat`/`.vfx` YAML'ını **elle yazmaz** (kırılgan, GUID
 cehennemi). Bunun yerine:
 
 - Particle Artist **JSON recipe** yazar (şema ile doğrulanır),
-- köprüdeki tek ve iyi test edilmiş C# builder onu ParticleSystem'e çevirir.
+- VFX Toolkit'teki tek ve iyi test edilmiş C# builder onu ParticleSystem'e çevirir.
 
 Faydaları: şema doğrulaması, küçük diff'ler, iterasyonda sadece parametre
 yaması, versiyon kontrolü dostu, LLM'in en iyi olduğu şey olan *yapılandırılmış
@@ -170,16 +204,9 @@ Shader'lar ise **kod** olarak yazılır (HLSL, LLM için doğal). VFX Graph
 HLSL dosyasında durur, Shader Graph sadece `Custom Function` düğümüyle onu
 çağırır (bkz. §6.2).
 
-### Mevcut açık kaynak köprüler
-
-Topluluğun Unity MCP projeleri var (ör. `justinpbarnett/unity-mcp`,
-`CoderGamester/mcp-unity`). Genel amaçlı editor kontrolü için temel alınabilir
-ya da ilham kaynağı olabilir; ancak **render yakalama, recipe builder ve
-profiling** bizim farkımız ve kendimiz yazmalıyız. (Karar noktası — §10.)
-
 ### Çalışma ortamı notu
 
-Köprü, Unity Editor'ün **açık olduğu makinede** çalışan Claude Code gerektirir
+Unity MCP'si, Unity Editor'ün **açık olduğu makinede** çalışan Claude Code gerektirir
 (yerel CLI / masaüstü uygulaması). Unity `-batchmode -nographics` render
 alamaz; headless/CI modu için GPU'lu batchmode + `-executeMethod` yedek yol
 olarak planlanır.
@@ -194,8 +221,8 @@ olarak planlanır.
 id: arcane_nova_impact
 archetype: impact            # projectile | impact | aura | beam | portal | buff | pickup | ...
 style: stylized_hand_painted
-platform: pc                 # pc | console | mobile
-pipeline: urp                # Unity 6 URP (köprüden doğrulanır)
+platform: pc                 # pc | console
+pipeline: urp                # Unity 6 URP (VFX Toolkit ile doğrulanır)
 duration: 1.6                # saniye
 loop: false
 scale_meters: 3.0
@@ -295,7 +322,7 @@ Paralel üretimin anahtarı. Örnekler:
   `Custom Function` ile çağıran Shader Graph şablonları. Blend modları:
   Additive, Alpha, Premultiplied, Multiply.
 - Her shader yazımından sonra hook ile derleme; hata varsa otomatik düzeltme.
-- Mobil için `half` hassasiyet, keyword sayısı sınırlaması.
+- Keyword/varyant sayısını sınırlı tut (derleme süresi ve bellek).
 
 ### Particle Artist
 - Shuriken'in tüm modüllerine hâkim skill paketi (modül referansı + "tarifler":
@@ -315,7 +342,6 @@ görünür biçimde yapılır (`layers[].backend`).
 
 | Durum | Backend | Neden |
 |---|---|---|
-| Hedef platformda compute shader yok / düşük uç mobil | Shuriken | VFX Graph compute gerektirir |
 | Katmanda < ~1.000 partikül, CPU'dan kontrol (fizik callback, script ile tek tek partikül) | Shuriken | Basit, her yerde çalışır, `OnParticleCollision` |
 | Binlerce–milyonlarca partikül (toz bulutu, sürü, kıvılcım yağmuru) | VFX Graph | GPU simülasyonu |
 | Uzun kesintisiz şeritler, GPU event zincirleri, SDF'e yapışan/akan partiküller, depth buffer çarpışması | VFX Graph | Shuriken'de yok ya da pahalı |
@@ -336,7 +362,7 @@ Bu yüzden üç kademe:
    `VisualEffect` bileşeninin (katman başına bir şablon) birleşimi.
    Davranış farkları Unity 6'nın **Custom HLSL** blok/operatörleri ve
    subgraph'larla eklenir; ajan HLSL yazar, şablon sabit kalır.
-3. **Programatik grafik kurucu (MVP-3, deneysel)** — Köprüde, VFX Graph'ın
+3. **Programatik grafik kurucu (MVP-3, deneysel)** — VFX Toolkit'te, VFX Graph'ın
    editor modelini (reflection ile) kullanıp context/blok ekleyen bir builder.
    Unity sürüm yükseltmelerinde kırılabileceği için sürüm-kilitli ve testli.
 
@@ -351,7 +377,7 @@ Critic hangi backend olduğunu bilmek zorunda değildir.
   özel Renderer Feature gerekirse (ör. ekran distorsiyonu, özel blur)
   Render Graph API'siyle yazılır.
 - **Distorsiyon/refraksiyon:** URP asset'inde *Opaque Texture* açık olmalı
-  (`_CameraOpaqueTexture`); köprü kontrol eder, kapalıysa uyarır.
+  (`_CameraOpaqueTexture`); VFX Toolkit kontrol eder, kapalıysa uyarır.
 - **Soft particle / depth fade:** *Depth Texture* açık olmalı.
 - **Tek HLSL, iki tüketici:** `VFXCore.hlsl` hem Shuriken için yazılan
   `.shader` dosyalarında, hem de VFX Graph çıktılarının kullandığı Shader
@@ -359,10 +385,35 @@ Critic hangi backend olduğunu bilmek zorunda değildir.
   kullanılır. Böylece dissolve/erosion gibi bir teknik bir kez yazılır, iki
   backend'de aynı görünür.
 - **HDR & bloom:** Renkler HDR yoğunluğuyla verilir; Volume'daki bloom eşiği
-  köprüden okunur ki "parlıyor mu" kararı gerçek ayara göre verilsin.
+  VFX Toolkit'ten okunur ki "parlıyor mu" kararı gerçek ayara göre verilsin.
 - **Decal:** Zemin izleri için URP Decal Projector (Renderer'da Decal
   feature açık olmalı).
 - **SRP Batcher uyumu:** Shader'lar `CBUFFER_START(UnityPerMaterial)` kuralına uyar.
+
+### 6.3 Stilize efekt dili
+
+Hedef stil stilize olduğu için ekibin tüm skill'leri bu dile göre yazılır:
+
+- **Şekil önce gelir:** Net silüetler, keskin/kavisli kontrast, büyük–orta–küçük
+  ölçek hiyerarşisi. Partikül "bulutu" yerine **okunur şekiller**.
+- **Mesh ağırlıklı:** Slash yayları, swirl'ler, halkalar, koniler, yarım küreler
+  üzerinde kayan (panning) dokular — stilize VFX'in omurgası. Mesh Artist
+  bu yüzden MVP-1'e alınır.
+- **Elle boyanmış görünümlü dokular:** Yumuşak gradient yerine sert kenarlı
+  maskeler, 2–3 tonlu basamaklı (posterize) geçişler, fırça hissi veren
+  noise'lar. Texture & Vector Artist'in ana aracı SVG + posterize noise.
+- **Stepped / toon shading:** Erosion'da `smoothstep` yerine keskin eşik +
+  ince parlak kenar (edge glow), 2–3 renk ramp'i (gradient map), ana renk +
+  koyu kontur tonu.
+- **Flipbook düşük kare sayısı:** 8–16 karelik, "animasyonlu çizim" hissi
+  veren flipbook'lar (ör. anime tarzı duman topları, patlama kareleri).
+- **Zamanlama:** Hızlı impact (1–3 kare), belirgin anticipation, uzun ve
+  yavaşlayan dissipation; smear/stretch.
+- **Renk:** Doygun ana renk, beyaza yakın çekirdek, tamamlayıcı aksan rengi;
+  koyu arka planda ve açık arka planda okunurluk kontrolü (Critic rubriği).
+- **Stil ön ayarları:** `stylized_hand_painted`, `anime_cel`, `moba_readable`
+  — Director brief'e göre birini seçer, skill'ler buna göre parametre
+  aralıklarını daraltır.
 
 ### Mesh Artist
 - Prosedürel mesh üretimi (Python → OBJ/FBX veya C# `Mesh` API): düz halka,
@@ -440,7 +491,7 @@ unity-vfx-designer/
 │   ├── iterate.md         # /vfx:iterate "<geri bildirim>"
 │   ├── variant.md         # /vfx:variant --element ice
 │   ├── review.md          # /vfx:review   — mevcut bir efekti eleştir
-│   └── optimize.md        # /vfx:optimize --platform mobile
+│   └── optimize.md        # /vfx:optimize  — bütçe ve LOD
 ├── agents/
 │   ├── vfx-architect.md
 │   ├── texture-artist.md
@@ -452,6 +503,7 @@ unity-vfx-designer/
 │   └── perf-engineer.md
 ├── skills/
 │   ├── vfx-director/            # orkestrasyon protokolü, spec yazımı
+│   ├── unity-adapter/           # kurulu Unity MCP'yi VFX Toolkit API'sine bağlar
 │   ├── vfx-fundamentals/        # zamanlama, şekil dili, renk, okunurluk
 │   ├── effect-archetypes/       # arketip şablonları
 │   ├── shuriken-reference/
@@ -459,7 +511,7 @@ unity-vfx-designer/
 │   ├── urp-vfx-shaders/         # HLSL tarif kitabı + VFXCore.hlsl + Shader Graph sarmalayıcıları
 │   ├── texture-authoring/       # SVG kalıpları, noise tarifleri, kanal paketleme
 │   ├── procedural-meshes/
-│   └── platform-budgets/
+│   └── pc-budgets/
 ├── hooks/
 │   └── hooks.json               # *.shader → derle, *.svg → rasterize, recipe → şema doğrula
 ├── schemas/
@@ -474,11 +526,9 @@ unity-vfx-designer/
 │   ├── flipbook_pack.py
 │   ├── mesh_gen.py
 │   └── contact_sheet.py
-├── mcp/
-│   └── unity-bridge/            # MCP sunucusu
 └── unity-package/
-    └── com.effectdesigner.bridge/
-        ├── Editor/              # HTTP sunucu, Shuriken + VFX Graph builder'ları, render yakalama, profiler
+    └── com.effectdesigner.vfxtoolkit/   # mevcut Unity MCP üzerinden çağrılır
+        ├── Editor/              # API, Shuriken + VFX Graph builder'ları, render yakalama, profiler
         ├── Runtime/             # EffectController (iki backend'i birlikte yönetir), pool arayüzü
         ├── Shaders/             # VFXCore.hlsl, Shader Graph şablonları
         └── VFXTemplates/        # İnsan eliyle yapılmış .vfx şablonları + property imzaları (JSON)
@@ -493,9 +543,8 @@ description: Unity 6 URP VFX shader uzmanı. Shuriken için HLSL/ShaderLab,
   VFX Graph için Custom Function tabanlı Shader Graph sarmalayıcıları yazar
   (dissolve, erosion, distortion, flipbook, fresnel).
   manifest.yaml'daki property ve vertex stream sözleşmesine uyar.
-tools: Read, Write, Edit, Glob, Grep, mcp__unity-bridge__unity_compile_shader,
-  mcp__unity-bridge__unity_apply_material_recipe
-skills: urp-vfx-shaders, vfx-fundamentals
+tools: Read, Write, Edit, Glob, Grep, <kurulu Unity MCP araçları>
+skills: urp-vfx-shaders, vfx-fundamentals, unity-adapter
 ---
 Sen kıdemli bir VFX teknik sanatçısısın...
 (1) effect.spec.yaml ve manifest.yaml'ı oku
@@ -516,8 +565,8 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 
 | Faz | Kapsam | Başarı kriteri |
 |---|---|---|
-| **MVP-1** | Unity 6 URP köprüsü (compile, Shuriken recipe builder, VFX Graph şablon+property builder, **render yakalama**), Architect, Texture&Vector, Shader (`VFXCore.hlsl` + `.shader` + Shader Graph sarmalayıcı), Particle (Shuriken + ~8 VFX Graph şablonu), Critic, 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan, iki backend'i karışık kullanan prefab |
-| **MVP-2** | Mesh Artist, Motion Designer (kamera/ışık), Performance Engineer, konsept panosu, `/vfx:iterate`, `/vfx:variant`, VFX Graph modüler kompozisyon + Custom HLSL blokları | Stilize MOBA kalitesine yaklaşan katmanlı efektler; mobil bütçe raporu (compute yoksa otomatik Shuriken fallback) |
+| **MVP-1** | Mevcut Unity MCP ile entegrasyonun doğrulanması; VFX Toolkit C# paketi (compile, Shuriken recipe builder, VFX Graph şablon+property builder, **render yakalama**); Architect, Texture&Vector, Shader (`VFXCore.hlsl` + `.shader` + Shader Graph sarmalayıcı, stilize/stepped), Particle (Shuriken + ~8 VFX Graph şablonu), Mesh, Critic; 4 arketip (impact, projectile, aura, pickup) | "Mor bir büyü çarpması" brief'inden 3 tur içinde kabul edilebilir, çalışan, iki backend'i karışık kullanan prefab |
+| **MVP-2** | Motion Designer (kamera/ışık), Performance Engineer, konsept panosu, `/vfx:iterate`, `/vfx:variant`, VFX Graph modüler kompozisyon + Custom HLSL blokları | Stilize MOBA kalitesine yaklaşan katmanlı efektler; PC bütçe raporu |
 | **MVP-3** | Programatik VFX Graph kurucu (deneysel), Style Librarian (proje hafızası), `/vfx:explore` A/B/C | Proje stilini öğrenen, tutarlı efekt setleri üreten stüdyo |
 
 ---
@@ -530,10 +579,10 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 | Unity YAML/GUID kırılganlığı | Deklaratif recipe + C# builder; ham YAML yazımı yasak |
 | VFX Graph / Shader Graph dosya formatları kırılgan, grafik API'si `internal` | Şablon + exposed property (MVP-1), Custom HLSL (MVP-2); programatik kurucu sürüm-kilitli ve deneysel (MVP-3) |
 | VFX Graph şablon kütüphanesinin kalitesi tüm sonucu belirler | Şablonlar insan eliyle yapılır/gözden geçirilir; her şablonun referans render'ı ve property imzası testlerle korunur |
-| Mobilde VFX Graph (compute) desteklenmeyebilir | Platform `mobile` ise Performance Engineer VFX Graph katmanlarını Shuriken eşdeğerine düşürür ya da uyarır |
 | Token maliyeti (çok ajan, çok tur) | Skill'lerle ihtiyaç anında bilgi yükleme; tur limiti; ucuz model yardımcı işlerde; sadece değişen katmanın yeniden üretimi |
 | Editor açık olmadan render yok | Yerel çalışma şartı; GPU'lu batchmode yedeği |
-| Renk uzayı / HDR tutarsızlığı | Köprü Linear/Gamma ve HDR ayarını okur, spec renkleri buna göre dönüştürülür |
+| Mevcut Unity MCP'nin API'si değişebilir / özel araç kaydı olmayabilir | `unity-adapter` skill'i ile soyutlama; yedek yol olarak "editor kodu çalıştır" + JSON istek/yanıt dosyaları |
+| Renk uzayı / HDR tutarsızlığı | VFX Toolkit Linear/Gamma ve HDR ayarını okur, spec renkleri buna göre dönüştürülür |
 
 ---
 
@@ -541,9 +590,9 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 
 1. ~~Hedef Unity sürümü ve pipeline?~~ → **Unity 6 + URP** ✓
 2. ~~Partikül önceliği?~~ → **Shuriken + VFX Graph birlikte** ✓
-3. **2D (sprite/UI efektleri) de kapsamda mı?**
-4. **Unity köprüsü:** sıfırdan mı yazalım, mevcut bir açık kaynak Unity MCP
-   üzerine mi kuralım?
-5. **Stil hedefi:** stilize (el boyaması/anime/MOBA) mı, gerçekçi mi, ikisi de mi?
-6. **Hedef platform:** PC/konsol mu, mobil de mi? (VFX Graph kullanımını
-   doğrudan etkiler.)
+3. ~~Stil?~~ → **Stilize** ✓
+4. ~~Platform?~~ → **PC / konsol, mobil yok** ✓
+5. ~~Köprü?~~ → **Mevcut Unity MCP + bizim VFX Toolkit C# paketimiz** ✓
+6. **Hangi Unity MCP?** Resmi Unity MCP (Unity AI paketi, Unity Cloud
+   bağlantısı ister) mi, topluluk MCP'si mi (ör. `CoplayDev/unity-mcp`)?
+7. **2D (sprite/UI efektleri) de kapsamda mı?**
