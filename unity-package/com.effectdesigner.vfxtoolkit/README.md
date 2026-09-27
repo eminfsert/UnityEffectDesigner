@@ -33,9 +33,11 @@ how the agents *see* motion and timing.
   (`VisualEffect`, experimental in edit mode) and any component implementing
   `EffectDesigner.VFXToolkit.IVfxTimeSampleable` (mesh scale curves, lights, material
   animation).
-- **Auto framing:** each view is framed on the pixels the effect actually covers across
+- **Auto framing:** each view is framed on the pixels the effect covers across
   all sampled times (compared against a background-only render, so vignette and fog
-  are ignored). Pass `framing_radius` to keep a fixed scale between iterations instead.
+  are ignored; the outer 2% of covered pixels per axis are trimmed so a few stray
+  particles do not dictate the framing).
+  Pass `framing_radius` to keep a fixed scale between iterations instead.
 - Sets the shader globals `_VFXToolkitCapture = 1` and `_VFXToolkitTime = t` while
   rendering, so toolkit shaders can use capture time instead of `_Time` for scrolling
   and dissolves.
