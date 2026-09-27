@@ -1,0 +1,77 @@
+#if VFXTOOLKIT_MCP
+using EffectDesigner.VFXToolkit.Editor.Capture;
+using MCPForUnity.Editor.Helpers;
+using MCPForUnity.Editor.Tools;
+using Newtonsoft.Json.Linq;
+
+namespace EffectDesigner.VFXToolkit.Editor.Mcp
+{
+    [McpForUnityTool(
+        "vfx_capture_timeline",
+        Description =
+            "Render a VFX (Shuriken and/or VFX Graph) at several points in time, in edit mode and " +
+            "deterministically (fixed seeds, re-simulated from t=0), inside an isolated preview scene. " +
+            "Writes one PNG per time x view x background and a contact sheet (columns = times, labelled; " +
+            "rows = view/background). Returns absolute file paths: open the contact sheet image to judge " +
+            "timing, shape, readability and color. Also returns alive particle counts per time and the " +
+            "framing bounds. View presets: front, back, side, top, three_quarter, low; or " +
+            "{name, azimuth, elevation} in degrees (azimuth 0 = camera on -Z). Backgrounds: dark, mid, light " +
+            "or hex colors.")]
+    public static class VfxCaptureTimelineTool
+    {
+        public class Parameters
+        {
+            [ToolParameter("Effect to capture: prefab path (Assets/...prefab), scene hierarchy path, GameObject name, or instance id.")]
+            public string target { get; set; }
+
+            [ToolParameter("Times in seconds since the effect started. Default [0,0.1,0.2,0.35,0.5,0.75,1,1.5]. Max 24.", Required = false)]
+            public float[] times { get; set; }
+
+            [ToolParameter("Camera views: preset names or {name, azimuth, elevation} objects. Default [\"three_quarter\"].", Required = false)]
+            public object[] views { get; set; }
+
+            [ToolParameter("Backgrounds: dark, mid, light or hex colors. Default [\"dark\"]. Use [\"dark\",\"light\"] to check readability.", Required = false)]
+            public string[] backgrounds { get; set; }
+
+            [ToolParameter("Frame size in pixels (square), 64-1024. Default 320.", Required = false)]
+            public int? frame_size { get; set; }
+
+            [ToolParameter("Random seed applied to every particle system / visual effect. Default 1234.", Required = false)]
+            public int? seed { get; set; }
+
+            [ToolParameter("Fixed framing radius in meters. Default: fit the effect's bounds across all times.", Required = false)]
+            public float? framing_radius { get; set; }
+
+            [ToolParameter("Vertical field of view in degrees. Default 35.", Required = false)]
+            public float? fov { get; set; }
+
+            [ToolParameter("Add a neutral key light for lit materials. Default true.", Required = false)]
+            public bool? add_light { get; set; }
+
+            [ToolParameter("Render URP post-processing (bloom, tonemapping) from the project's global volumes. Default true.", Required = false)]
+            public bool? post_processing { get; set; }
+
+            [ToolParameter("Output folder (project-relative or absolute). Default Library/VFXToolkit/Captures.", Required = false)]
+            public string output_folder { get; set; }
+
+            [ToolParameter("Name for this capture's subfolder, e.g. 'arcane_nova_iter2'. Default: effect name.", Required = false)]
+            public string label { get; set; }
+        }
+
+        public static object HandleCommand(JObject @params)
+        {
+            var request = CaptureRequest.FromJson(@params, out string error);
+            if (request == null)
+                return new ErrorResponse(error);
+
+            var result = TimelineCapture.Run(request, out error);
+            if (result == null)
+                return new ErrorResponse(error);
+
+            return new SuccessResponse(
+                $"Captured {result.frames.Count} frames of '{result.target}'. Contact sheet: {result.contactSheet}",
+                result);
+        }
+    }
+}
+#endif

@@ -1,6 +1,6 @@
 # Unity Effect Designer — Claude Code için VFX Ajan Stüdyosu
 
-> Durum: **Tasarım taslağı (v0.5)** — değerlendirme ve karar için.
+> Durum: **Tasarım v0.6** — kararlar tamam, MVP-1 uygulanıyor.
 
 ### Alınan kararlar
 
@@ -10,6 +10,7 @@
 | Partikül sistemi | **Shuriken + VFX Graph birlikte** — katman bazında seçim (bkz. §6.1) |
 | Stil | **Stilize** (el boyaması / anime / MOBA-ARPG çizgisi) — gerçekçi efekt kapsam dışı (bkz. §6.3) |
 | Platform | **PC / konsol** — mobil hedeflenmiyor; VFX Graph (compute) serbestçe kullanılır |
+| Kapsam | **3D sahnedeki efektler.** Efekt içi 2D sprite/doku çizimi kapsamda; tamamen 2D oyunlar (SpriteRenderer sahneleri, UI Canvas partikülleri) şimdilik kapsam dışı |
 | Unity bağlantısı | **CoplayDev/unity-mcp (MCP for Unity)** — kullanıcıda kurulu. Kendi MCP sunucumuzu yazmayız; eksikleri bu MCP'nin **custom tool** mekanizmasıyla ekleyen küçük bir C# paketi yazarız (bkz. §4) |
 
 Kullanıcının betimlediği ya da referans görselle desteklediği bir efekti
@@ -490,8 +491,12 @@ Hedef stil stilize olduğu için ekibin tüm skill'leri bu dile göre yazılır:
 
 ## 9. Plugin Dizin Yapısı
 
+Repo kökünde `.claude-plugin/marketplace.json`, plugin `plugins/unity-vfx-designer/`,
+Unity paketi `unity-package/com.effectdesigner.vfxtoolkit/` altında durur. Plugin'in
+hedef yapısı:
+
 ```
-unity-vfx-designer/
+plugins/unity-vfx-designer/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── commands/
@@ -605,6 +610,6 @@ Sen kıdemli bir VFX teknik sanatçısısın...
 4. ~~Platform?~~ → **PC / konsol, mobil yok** ✓
 5. ~~Köprü?~~ → **CoplayDev/unity-mcp + VFX Toolkit custom tool'ları** ✓
 6. ~~Efekt içi 2D sprite/doku çizimi?~~ → **Evet, çekirdek yetenek** (Texture & Vector Artist, §6) ✓
-7. **2D oyun efektleri** (SpriteRenderer sahneleri, UI Canvas üzerinde
-   partikül) de kapsamda mı? Bu, 3D sahnedeki efektin sprite kullanmasından
-   farklı: kamera, sorting layer ve UI render akışı değişir.
+7. ~~2D oyun efektleri (SpriteRenderer sahneleri, UI Canvas partikülleri)?~~ → **Şimdilik kapsam dışı** ✓
+
+Tüm temel kararlar alındı; MVP-1 uygulamasına geçildi.

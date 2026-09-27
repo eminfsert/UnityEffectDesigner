@@ -1,0 +1,76 @@
+---
+name: unity-adapter
+description: How the Effect Designer agents talk to the Unity Editor through MCP for Unity (CoplayDev/unity-mcp) and the VFX Toolkit custom tools. Load before any Unity call in a VFX task — building particle systems or VFX Graphs, writing shaders or materials, importing textures, or capturing/reviewing an effect with vfx_capture_timeline.
+---
+
+# Unity adapter
+
+The plugin does not ship its own MCP server. Everything in Unity goes through the
+user's **MCP for Unity** server (CoplayDev/unity-mcp) plus the custom tools that the
+**Effect Designer VFX Toolkit** Unity package registers into it.
+
+## 1. Session preflight (once per task)
+
+1. Find the MCP for Unity tools. Their names look like `mcp__<server>__manage_scene`;
+   the server name depends on the user's setup (often `UnityMCP`). If no such tools
+   exist, stop and tell the user to start Unity and connect MCP for Unity.
+2. Activate the VFX tool group, which is hidden by default:
+   `manage_tools(action="activate", group="vfx")`.
+3. Check that the toolkit is installed: `vfx_capture_timeline` is listed as a tool,
+   or appears in the project's custom tools (resource `mcpforunity://custom-tools`).
+   If it is missing, ask the user to add the package:
+   `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit`
+   and reconnect the MCP client.
+4. Read the console once (`read_console`) so later errors are not confused with
+   pre-existing ones.
+
+## 2. Calling toolkit tools
+
+Toolkit tools are custom tools. Depending on the server configuration they are
+exposed either directly (`mcp__<server>__vfx_capture_timeline`) or only through
+`execute_custom_tool`. Prefer the direct tool; otherwise call:
+
+```
+execute_custom_tool(tool_name="vfx_capture_timeline", parameters={...})
+```
+
+Parameter names are snake_case exactly as documented below.
+
+## 3. Which tool for which job
+
+| Job | Tool |
+|---|---|
+| Scene / GameObject / prefab / asset | `manage_scene`, `manage_gameobject`, `manage_prefabs`, `manage_asset` |
+| Shuriken basics (main, emission, shape, color/size/velocity over lifetime, noise, renderer, bursts) | `manage_vfx` with `particle_*` actions |
+| VFX Graph from template + exposed properties, events, seed | `manage_vfx` with `vfx_*` actions |
+| Line / trail renderers | `manage_vfx` with `line_*` / `trail_*` actions |
+| Shader files, materials | `manage_shader`, `manage_material` |
+| Simple textures, import settings | `manage_texture` |
+| URP asset, renderer features, volumes | `manage_graphics` |
+| **See the effect over time** | **`vfx_capture_timeline`** (toolkit) |
+| Anything missing | Prototype with `execute_code` (C# method body); if used repeatedly, it belongs in the toolkit as a custom tool |
+
+## 4. `vfx_capture_timeline`
+
+Renders the effect in an isolated preview scene at the requested times, deterministic
+(fixed seeds, re-simulated from t = 0). Returns absolute paths.
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `target` | required | Prefab path (`Assets/...prefab`), scene path, name, or instance id |
+| `times` | `[0,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds. Put extra samples around the spec's beats (anticipation, impact, dissipation) |
+| `views` | `["three_quarter"]` | `front, back, side, top, three_quarter, low` or `{name, azimuth, elevation}` |
+| `backgrounds` | `["dark"]` | `dark, mid, light` or hex. Use `["dark","light"]` for readability checks |
+| `frame_size` | 320 | 64–1024 |
+| `seed` | 1234 | Change it to check the effect is not relying on one lucky random roll |
+| `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible |
+| `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
+| `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
+
+**After every capture, open `contactSheet` with the Read tool and look at it.** Never
+judge an effect from the numbers alone. Use `particleCounts` for density/performance,
+and `warnings` for anything that makes the frames unreliable.
+
+Limits: at most 24 times and 192 frames per call. VFX Graph stepping in edit mode is
+experimental. If VFX Graph frames look empty or identical, say so and verify in Play
+Mode rather than guessing.

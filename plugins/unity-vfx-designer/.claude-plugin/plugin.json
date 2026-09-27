@@ -1,0 +1,10 @@
+{
+  "name": "unity-vfx-designer",
+  "version": "0.1.0",
+  "description": "A team of VFX agents that turns described or referenced effects into working Unity 6 URP effects (Shuriken + VFX Graph, shaders, textures, meshes). Requires MCP for Unity (CoplayDev/unity-mcp) and the Effect Designer VFX Toolkit Unity package.",
+  "author": {
+    "name": "eminfsert"
+  },
+  "repository": "https://github.com/eminfsert/UnityEffectDesigner",
+  "keywords": ["unity", "vfx", "particles", "shaders", "urp"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "unity-effect-designer",
+  "owner": {
+    "name": "eminfsert"
+  },
+  "plugins": [
+    {
+      "name": "unity-vfx-designer",
+      "source": "./plugins/unity-vfx-designer",
+      "description": "A team of VFX agents that turns described or referenced effects into working Unity 6 URP effects (Shuriken + VFX Graph, shaders, textures, meshes)."
+    }
+  ]
+}
