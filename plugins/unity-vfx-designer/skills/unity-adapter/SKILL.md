@@ -59,7 +59,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | Parameter | Default | Notes |
 |---|---|---|
 | `target` | required | Prefab path (`Assets/...prefab`), scene path, name, or instance id |
-| `times` | `[0,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds. Put extra samples around the spec's beats (anticipation, impact, dissipation) |
+| `times` | `[0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds; 0 is the first rendered frame (1/60 s). Put extra samples around the spec's beats (anticipation, impact, dissipation) and across the whole life of every layer, including sub-emitters, so nothing happens only between samples |
 | `views` | `["three_quarter"]` | `front, back, side, top, three_quarter, low` or `{name, azimuth, elevation}` |
 | `backgrounds` | `["dark"]` | `dark, mid, light` or hex. Use `["dark","light"]` for readability checks |
 | `frame_size` | 320 | 64–1024 |

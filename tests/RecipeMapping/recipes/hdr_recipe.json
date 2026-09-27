@@ -1,0 +1,8 @@
+{
+  "palette": { "gold": { "color": [1, 0.76, 0.28, 1], "intensity": 2 } },
+  "systems": [
+    { "name": "Sparks",
+      "main": { "start_color": "$gold" },
+      "trails": { "color_over_trail": ["$gold", [1, 1, 1, 1]] } }
+  ]
+}

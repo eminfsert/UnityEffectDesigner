@@ -48,6 +48,19 @@ static class Program
             failures++;
         }
 
+        // HDR on particle colors: Shuriken stores 8-bit colors, so the tool must rescale and warn.
+        var hdr = JObject.Parse(File.ReadAllText(Path.Combine(dir, "hdr_recipe.json")));
+        hdr["dry_run"] = true;
+        var hdrResult = ParticleRecipeBuilder.Apply(hdr, out var hdrErrors);
+        int hdrWarnings = hdrResult?.warnings.Count(w => w.Contains("HDR color")) ?? 0;
+        if (hdrErrors.Count == 0 && hdrWarnings == 2)
+            Console.WriteLine("PASS hdr_recipe.json warns about HDR particle colors (start_color, color_over_trail[0])");
+        else
+        {
+            Console.WriteLine($"FAIL hdr_recipe.json: expected 2 HDR warnings and no errors, got {hdrWarnings} warning(s), errors: {string.Join("; ", hdrErrors)}");
+            failures++;
+        }
+
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
     }

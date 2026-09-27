@@ -205,31 +205,50 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 
         // ---------------- gradients ----------------
 
+        /// <summary>
+        /// Color fields of particle modules. Shuriken stores particle colors as 8-bit Color32,
+        /// so HDR values are clipped per channel (an HDR gold turns white). HDR colors are
+        /// therefore normalized to full brightness with their hue kept, and a warning says to
+        /// put the intensity in the material instead.
+        /// </summary>
         public static ParticleSystem.MinMaxGradient ToMinMaxGradient(JToken token, RecipeContext ctx, string where)
         {
             if (token.Type == JTokenType.String)
-                return new ParticleSystem.MinMaxGradient(ToColor(token, ctx, where));
+                return new ParticleSystem.MinMaxGradient(Ldr(ToColor(token, ctx, where), ctx, where));
 
-            if (token is JArray arr && arr.Count == 2 && arr.All(t => t.Type == JTokenType.String || t.Type == JTokenType.Object))
-                return new ParticleSystem.MinMaxGradient(ToColor(arr[0], ctx, where + "[0]"), ToColor(arr[1], ctx, where + "[1]"));
+            // Two colors = random between them; each may be "#hex", "$name", {color, intensity} or [r, g, b, a].
+            if (token is JArray arr && arr.Count == 2 && arr.All(t => t.Type == JTokenType.String || t.Type == JTokenType.Object || t.Type == JTokenType.Array))
+                return new ParticleSystem.MinMaxGradient(Ldr(ToColor(arr[0], ctx, where + "[0]"), ctx, where + "[0]"), Ldr(ToColor(arr[1], ctx, where + "[1]"), ctx, where + "[1]"));
 
             if (token is JObject obj)
             {
                 if (obj["gradient_min"] != null && obj["gradient_max"] != null)
-                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["gradient_min"], ctx, where + ".gradient_min"), ToGradient(obj["gradient_max"], ctx, where + ".gradient_max"));
+                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["gradient_min"], ctx, where + ".gradient_min", true), ToGradient(obj["gradient_max"], ctx, where + ".gradient_max", true));
                 if (obj["gradient"] != null)
-                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["gradient"], ctx, where + ".gradient"));
+                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["gradient"], ctx, where + ".gradient", true));
                 if (obj["random_color"] != null)
-                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["random_color"], ctx, where + ".random_color")) { mode = ParticleSystemGradientMode.RandomColor };
+                    return new ParticleSystem.MinMaxGradient(ToGradient(obj["random_color"], ctx, where + ".random_color", true)) { mode = ParticleSystemGradientMode.RandomColor };
                 if (obj["colors"] != null)
-                    return new ParticleSystem.MinMaxGradient(ToGradient(obj, ctx, where));
+                    return new ParticleSystem.MinMaxGradient(ToGradient(obj, ctx, where, true));
                 if (obj["color"] != null || obj["hex"] != null)
-                    return new ParticleSystem.MinMaxGradient(ToColor(obj, ctx, where));
+                    return new ParticleSystem.MinMaxGradient(Ldr(ToColor(obj, ctx, where), ctx, where));
             }
             throw new RecipeException($"{where}: expected a color, [colorA, colorB], or {{\"gradient\": {{\"colors\": .., \"alphas\": ..}}}}.");
         }
 
-        public static Gradient ToGradient(JToken token, RecipeContext ctx, string where)
+        /// <summary>Scales an HDR color down to max channel 1 (keeping hue) and warns; LDR colors pass through.</summary>
+        public static Color Ldr(Color c, RecipeContext ctx, string where)
+        {
+            float max = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+            if (max <= 1f)
+                return c;
+            ctx.Warnings.Add($"{where}: HDR color ({Format(c.r)}, {Format(c.g)}, {Format(c.b)}) used on particles. Shuriken stores particle colors as 8-bit, " +
+                             "so it would be clipped to white; the hue was kept at full brightness. Put the intensity in the material " +
+                             "(HDR base/emission color) or a custom_data multiplier the shader reads.");
+            return new Color(c.r / max, c.g / max, c.b / max, c.a);
+        }
+
+        public static Gradient ToGradient(JToken token, RecipeContext ctx, string where, bool particleColors = false)
         {
             if (!(token is JObject obj) || !(obj["colors"] is JArray colors) || colors.Count == 0)
                 throw new RecipeException($"{where}: a gradient needs \"colors\": [[t, color], ...] or [color, ...].");
@@ -237,10 +256,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             var colorKeys = new List<GradientColorKey>();
             for (int i = 0; i < colors.Count; i++)
             {
-                if (colors[i] is JArray pair && pair.Count == 2 && IsNumber(pair[0]))
-                    colorKeys.Add(new GradientColorKey(ToColor(pair[1], ctx, where), pair[0].Value<float>()));
-                else
-                    colorKeys.Add(new GradientColorKey(ToColor(colors[i], ctx, where), colors.Count == 1 ? 0f : i / (float)(colors.Count - 1)));
+                bool timed = colors[i] is JArray pair && pair.Count == 2 && IsNumber(pair[0]);
+                var color = ToColor(timed ? colors[i][1] : colors[i], ctx, where);
+                if (particleColors)
+                    color = Ldr(color, ctx, $"{where}.colors[{i}]");
+                float time = timed ? colors[i][0].Value<float>() : colors.Count == 1 ? 0f : i / (float)(colors.Count - 1);
+                colorKeys.Add(new GradientColorKey(color, time));
             }
 
             var alphaKeys = new List<GradientAlphaKey>();

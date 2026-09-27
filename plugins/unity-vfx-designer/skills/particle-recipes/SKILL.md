@@ -100,8 +100,14 @@ Eases: `linear`, `ease_in_quad`, `ease_out_quad`, `ease_in_out_quad`, `ease_in_c
 degrees: `"start_rotation_deg": [0, 360]`, `"z_deg": [-90, 90]`.
 
 **Colors:** `"#FFC247"`, `"#FFC24780"` (with alpha), `"$accent"` (palette),
-`{"color": "#9B5CFF", "intensity": 2}` (HDR, intensity in stops: x4 here, so bloom
-catches it), `[r, g, b, a]`.
+`{"color": "#9B5CFF", "intensity": 2}` (HDR, intensity in stops: x4 here), `[r, g, b, a]`.
+
+**Particle colors are 8-bit.** Shuriken stores start color, color over lifetime and every
+other particle color field as Color32, so HDR values are clipped per channel: an HDR
+gold becomes plain white. The tool rescales HDR colors to full brightness with their hue
+kept, and warns. Glow and bloom come from the **material**: an HDR base/emission
+color, or a shader multiplier fed by `custom_data`. Keep palette HDR entries for
+materials and use plain hex colors on particles.
 
 **Color fields** (MinMaxGradient): a color; `["#a", "#b"]` (random between two);
 `{"gradient": {"colors": ["$core", "$primary"], "alphas": [[0, 1], [1, 0]]}}`, where
@@ -152,14 +158,15 @@ without updating the shader. Stream names are Unity's `ParticleSystemVertexStrea
 
 ## Stylized patterns (starting points, tune after capturing)
 
-- **Impact flash:** 1 particle, lifetime 0.1–0.2, `size_over_lifetime` `spike`, HDR core
-  color fading to the primary color, additive, `sorting_fudge` negative so it draws on top.
+- **Impact flash:** 1 particle, lifetime 0.1–0.2, `size_over_lifetime` `spike`, core color
+  fading to the primary color, additive material with HDR intensity, `sorting_fudge`
+  negative so it draws on top.
 - **Sparks:** burst 20–50, speed [6, 14], `limit_velocity_over_lifetime.dampen` 0.1–0.2 for
   the "fast then hang" feel, stretch render mode, `gravity_modifier` 0.3–1, size ends at 0.
 - **Toon smoke puff:** 3–8 particles, flipbook 4x4, `color_over_lifetime` with
   `"mode": "fixed"` (2–3 flat tones), `start_rotation_deg` [0, 360], slow upward velocity,
   `pop` size curve.
 - **Embers:** rate 10–30, long life, `noise` strength 0.3–0.8 at low frequency, small
-  HDR sizes. Always check them on the light background.
+  sizes, brightness from an HDR material. Always check them on the light background.
 - **Readability:** vary size (a few large "hero" particles among many small ones) and give
   additive layers a darker alpha-blended companion so the effect reads on bright scenes.

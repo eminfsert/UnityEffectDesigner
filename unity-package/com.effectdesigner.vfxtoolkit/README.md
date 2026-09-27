@@ -27,6 +27,7 @@ how the agents *see* motion and timing.
 - Works in **edit mode**, inside an isolated preview scene: the open scene is not modified
   and nothing else in it is rendered. The project's global Volumes (bloom, tonemapping)
   still apply.
+- `t = 0` is the first rendered frame (1/60 s), so bursts at time 0 are visible.
 - **Deterministic:** every ParticleSystem gets a fixed seed and is re-simulated from
   `t = 0` for each time, so two captures of the same effect are identical.
 - Samples Shuriken (including sub-emitters and child systems), VFX Graph
@@ -72,7 +73,8 @@ Creates or updates a hierarchy of Shuriken particle systems from one JSON recipe
   (bound by reflection, so nothing is left out), plus `emission.bursts`, `sub_emitters`,
   `custom_data`, `renderer.vertex_streams` and texture-sheet `sprites`.
 - Curves: `1.5`, `[min, max]`, `[[t, v], ...]`, `{"ease": "ease_out_expo", "from": 1, "to": 0}`.
-  Colors: `#hex`, `$palette` names, HDR `{"color": "#hex", "intensity": stops}`.
+  Colors: `#hex`, `$palette` names, HDR `{"color": "#hex", "intensity": stops}`
+  (particle colors are 8-bit in Shuriken, so HDR is rescaled with a warning; glow belongs in the material).
   Angles in degrees with a `_deg` suffix (`start_rotation_deg`).
 - **Validated before anything changes:** on any error nothing is modified and all problems
   come back at once with "did you mean" suggestions. `dry_run` validates only.
@@ -83,7 +85,7 @@ Creates or updates a hierarchy of Shuriken particle systems from one JSON recipe
 {
   "name": "VFX_ArcaneSparks",
   "save_prefab": "Assets/VFX/ArcaneSparks/VFX_ArcaneSparks.prefab",
-  "palette": { "core": "#FFF4D6", "accent": { "color": "#FFC247", "intensity": 2 } },
+  "palette": { "core": "#FFF4D6", "accent": "#FFC247" },
   "systems": [
     {
       "name": "Sparks",

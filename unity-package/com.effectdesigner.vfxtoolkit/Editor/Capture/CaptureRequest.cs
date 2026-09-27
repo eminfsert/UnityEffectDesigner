@@ -43,7 +43,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public const int MaxTimes = 24;
         public const int MaxFrames = 192;
 
-        public static readonly float[] DefaultTimes = { 0f, 0.1f, 0.2f, 0.35f, 0.5f, 0.75f, 1f, 1.5f };
+        public static readonly float[] DefaultTimes = { 0f, 0.05f, 0.1f, 0.2f, 0.35f, 0.5f, 0.75f, 1f, 1.5f };
 
         static readonly Dictionary<string, CaptureView> ViewPresets = new Dictionary<string, CaptureView>(StringComparer.OrdinalIgnoreCase)
         {

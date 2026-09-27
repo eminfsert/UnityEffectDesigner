@@ -18,6 +18,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
         const float VfxStep = 1f / 60f;
 
+        /// <summary>
+        /// Time 0 is shown as the first rendered frame. Simulating exactly 0 s emits nothing,
+        /// so bursts at t = 0 (impact flashes) would never appear in the first column.
+        /// </summary>
+        public const float FirstFrame = 1f / 60f;
+
         readonly List<ParticleSystem> _rootParticleSystems = new List<ParticleSystem>();
         readonly ParticleSystem[] _allParticleSystems;
         readonly VisualEffect[] _visualEffects;
@@ -80,14 +86,16 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             foreach (var sampleable in _sampleables)
                 sampleable.SampleAt(time);
 
+            float simulated = Mathf.Max(time, FirstFrame);
+
             // Children (including sub-emitters) are simulated by their root system.
             foreach (var ps in _rootParticleSystems)
-                ps.Simulate(time, true, true, true);
+                ps.Simulate(simulated, true, true, true);
 
             foreach (var vfx in _visualEffects)
             {
                 vfx.Reinit();
-                uint steps = (uint)Mathf.RoundToInt(time / VfxStep);
+                uint steps = (uint)Mathf.Max(1, Mathf.RoundToInt(simulated / VfxStep));
                 if (steps > 0)
                     vfx.Simulate(VfxStep, steps);
             }
