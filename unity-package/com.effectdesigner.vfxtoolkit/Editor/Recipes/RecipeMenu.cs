@@ -25,7 +25,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             var result = ParticleRecipeBuilder.Apply(recipe, out var errors);
             if (result == null)
             {
-                Debug.LogError($"[VFX Toolkit] Recipe rejected, nothing was changed:\n- {string.Join("\n- ", errors)}");
+                // One entry per line: MCP read_console only returns the first lines of an entry.
+                Debug.LogError($"[VFX Toolkit] Recipe rejected, nothing was changed ({errors.Count} problem(s)).");
+                foreach (var e in errors)
+                    Debug.LogError($"[VFX Toolkit] {e}");
                 return;
             }
 
@@ -34,8 +37,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             foreach (var error in result.errors)
                 Debug.LogError($"[VFX Toolkit] {error}");
             Debug.Log($"[VFX Toolkit] {(result.dryRun ? "Validated" : "Applied")} {result.systems.Count} system(s)" +
-                      (result.prefab != null ? $", saved to {result.prefab}" : "") + ".\n" +
-                      string.Join("\n", result.systems.ConvertAll(s => $"{s.name}{(s.created ? " (new)" : "")}: {string.Join(", ", s.applied)}")));
+                      (result.prefab != null ? $", saved to {result.prefab}" : "") + ".");
+            foreach (var s in result.systems)
+                Debug.Log($"[VFX Toolkit] {s.name}{(s.created ? " (new)" : "")}: {string.Join(", ", s.applied)}");
         }
     }
 }

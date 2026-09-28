@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -34,16 +37,33 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
             foreach (var warning in result.warnings)
                 Debug.LogWarning($"[VFX Toolkit] {warning}");
-            var table = new System.Text.StringBuilder("time        " + string.Join(" ", System.Array.ConvertAll(result.times, t => ContactSheet.FormatTime(t).PadLeft(6))));
-            foreach (var entry in result.systemParticleCounts)
-                table.Append("\n").Append(entry.Key.PadRight(12).Substring(0, 12)).Append(string.Join(" ", entry.Value.ConvertAll(c => c.ToString().PadLeft(6))));
-            if (result.postProcessing != null)
-                table.Append($"\n\nPost-processing: {result.postProcessing.volumeProfile}, tonemapping {result.postProcessing.tonemapping}, bloom {(result.postProcessing.bloom ? $"threshold {result.postProcessing.bloomThreshold:0.##} intensity {result.postProcessing.bloomIntensity:0.##}" : "off")}");
-            table.Append($"\n\nColor ({result.colorStatsFor}): washed-out / saturation / hue");
-            foreach (var c in result.colorStats)
-                table.Append($"\n{ContactSheet.FormatTime(c.time),6}  {(c.washedOut < 0 ? "-" : c.washedOut.ToString("P0")),5}  {c.saturation,4:0.00}  {(c.hue < 0 ? "-" : c.hue.ToString("0") + "°")}");
-            Debug.Log($"[VFX Toolkit] Captured {result.frames.Count} frames. Contact sheet: {result.contactSheet}\nAlive particles per system:\n{table}");
+            foreach (var line in SummaryLines(result))
+                Debug.Log("[VFX Toolkit] " + line);
             EditorUtility.RevealInFinder(result.contactSheet);
+        }
+
+        /// <summary>
+        /// One log entry per line, culture-invariant: tools like MCP read_console return only the
+        /// first lines of a multi-line entry (the rest lands in the stack trace), and a Turkish or
+        /// German editor would otherwise print "0,95" and "%0".
+        /// </summary>
+        static IEnumerable<string> SummaryLines(TimelineCaptureResult result)
+        {
+            yield return $"Captured {result.frames.Count} frames. Contact sheet: {result.contactSheet}";
+            yield return "Times: " + string.Join(" ", result.times.Select(ContactSheet.FormatTime));
+            foreach (var entry in result.systemParticleCounts)
+                yield return $"Particles {entry.Key}: {string.Join(" ", entry.Value)}";
+            if (result.postProcessing != null)
+            {
+                var p = result.postProcessing;
+                yield return FormattableString.Invariant(
+                    $"Post-processing: {p.volumeProfile} (source: {p.volumeProfileSource ?? "none set"}), tonemapping {p.tonemapping}, bloom {(p.bloom ? $"threshold {p.bloomThreshold:0.##} intensity {p.bloomIntensity:0.##}" : "off")}");
+            }
+            foreach (var c in result.colorStats)
+            {
+                yield return FormattableString.Invariant(
+                    $"Color {result.colorStatsFor} {ContactSheet.FormatTime(c.time)}: washedOut {(c.washedOut < 0 ? "-" : $"{c.washedOut * 100:0}%")}, saturation {c.saturation:0.00}, hue {(c.hue < 0 ? "-" : $"{c.hue:0}deg")}, coverage {c.coverage * 100:0.00}%");
+            }
         }
 
         [MenuItem(MenuPath, true)]

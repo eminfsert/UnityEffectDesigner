@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -25,19 +24,18 @@ namespace EffectDesigner.VFXToolkit.Editor.Shaders
             foreach (var warning in result.warnings)
                 Debug.LogWarning($"[VFX Toolkit] {warning}");
 
-            var log = new StringBuilder($"[VFX Toolkit] {result.checkedShaders} shader(s), {result.shadersWithErrors} with errors.");
+            // One entry per line: MCP read_console only returns the first lines of an entry.
+            Debug.Log($"[VFX Toolkit] {result.checkedShaders} shader(s), {result.shadersWithErrors} with errors.");
             foreach (var shader in result.shaders)
             {
-                log.Append($"\n\n{shader.name} ({shader.path}): {shader.errors.Count} error(s), {shader.warnings.Count} warning(s)");
+                Debug.Log($"[VFX Toolkit] {shader.name} ({shader.path}): {shader.errors.Count} error(s), {shader.warnings.Count} warning(s)");
                 foreach (var e in shader.errors)
-                    log.Append($"\n  ERROR {e.file}:{e.line} {e.message}");
+                    Debug.LogError($"[VFX Toolkit] {shader.name} ERROR {e.file}:{e.line} {e.message}");
                 foreach (var w in shader.warnings)
-                    log.Append($"\n  warning {w.file}:{w.line} {w.message}");
-                log.Append("\n  properties: ").Append(string.Join(", ", shader.properties.Select(p => $"{p.name} ({p.type}{(p.hdr ? ", HDR" : "")})")));
+                    Debug.LogWarning($"[VFX Toolkit] {shader.name} warning {w.file}:{w.line} {w.message}");
+                Debug.Log($"[VFX Toolkit] {shader.name} properties: " +
+                          string.Join(", ", shader.properties.Select(p => $"{p.name} ({p.type}{(p.hdr ? ", HDR" : "")})")));
             }
-
-            if (result.shadersWithErrors > 0) Debug.LogError(log.ToString());
-            else Debug.Log(log.ToString());
         }
 
         [MenuItem(MenuPath, true)]

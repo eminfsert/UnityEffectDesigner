@@ -43,6 +43,11 @@ This does **not** mean the parameter is unsupported. Retry the same call through
 `execute_custom_tool`, which does not validate against the cached schema, and tell the user
 to reconnect the MCP client.
 
+**Reading toolkit results.** Prefer the tool response (structured JSON) over the console.
+If you must read a menu action's log with `read_console`, note that multi-line entries are
+cut after the first lines (the rest lands in the stack trace). The toolkit's menus
+therefore log one line per entry, culture-invariant, all prefixed `[VFX Toolkit]`.
+
 ## 3. Which tool for which job
 
 | Job | Tool |
