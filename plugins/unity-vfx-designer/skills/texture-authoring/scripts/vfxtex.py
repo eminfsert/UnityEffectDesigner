@@ -250,40 +250,34 @@ def flame(a):
 
 
 def puff(a):
-    """Toon puff: union of round lobes. Returns (alpha, rgb) with dark inner strokes in RGB, so the
-    tint colors the puff and the strokes stay dark."""
+    """Toon puff: a round body with smaller bumps around its edge (a cartoon cloud, not a clover).
+    Returns (alpha, rgb) with dark strokes in RGB where a bump meets the body, so the tint colors
+    the puff and the strokes stay dark."""
     x, y = grid(a.size)
     rng = np.random.default_rng(a.seed)
-    alpha = np.zeros_like(x)
-    lobes = []
+    body_r = 0.46
+    alpha = 1 - smoothstep(body_r - a.softness, body_r + a.softness, np.sqrt(x * x + y * y))
+    bumps = []
+    start = rng.random() * 2 * math.pi
     for i in range(a.lobes):
-        ang = i / a.lobes * 2 * math.pi + rng.random() * 0.6
-        dist = 0.18 + 0.12 * rng.random()
-        rad = 0.34 + 0.12 * rng.random()
-        cx, cy = math.cos(ang) * dist, math.sin(ang) * dist
-        lobes.append((cx, cy, rad))
-        alpha = np.maximum(alpha, 1 - smoothstep(rad - a.softness, rad + a.softness, np.sqrt((x - cx) ** 2 + (y - cy) ** 2)))
-    alpha = np.maximum(alpha, 1 - smoothstep(0.3 - a.softness, 0.3 + a.softness, np.sqrt(x * x + y * y)))
-    # Inner strokes: where one lobe's edge crosses another lobe, like the lines inside a cartoon cloud.
-    lobe_alpha = [1 - smoothstep(rad - a.softness, rad + a.softness, np.sqrt((x - cx) ** 2 + (y - cy) ** 2)) for cx, cy, rad in lobes]
+        ang = start + i / a.lobes * 2 * math.pi + (rng.random() - 0.5) * 0.5
+        rad = 0.2 + 0.08 * rng.random()
+        dist = body_r + rad * (0.0 + 0.2 * rng.random())         # bumps stick out past the body
+        dist = min(dist, 0.9 - rad)                               # stay inside the texture margin
+        bumps.append((math.cos(ang) * dist, math.sin(ang) * dist, rad))
+        alpha = np.maximum(alpha, 1 - smoothstep(rad - a.softness, rad + a.softness, np.sqrt((x - bumps[-1][0]) ** 2 + (y - bumps[-1][1]) ** 2)))
+    # Strokes: the inner part of a bump's outline, where it overlaps the body (short curved lines just
+    # inside the silhouette), for the first --strokes bumps.
+    body_alpha = 1 - smoothstep(body_r - 0.05, body_r, np.sqrt(x * x + y * y))
     ink = np.zeros_like(x)
-    for i, (cx, cy, rad) in enumerate(lobes[: a.strokes]):
+    for cx, cy, rad in bumps[: a.strokes]:
         dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-        line = 1 - smoothstep(a.width * 0.5 - a.softness, a.width * 0.5 + a.softness, np.abs(dist - rad))
-        others = np.maximum.reduce([la for j, la in enumerate(lobe_alpha) if j != i]) if len(lobes) > 1 else np.zeros_like(x)
-        # Only the part inside the other lobes and away from the middle: short arcs where lobes
-        # overlap near the outline, with soft ends.
-        inside = smoothstep(0.4, 1.0, others)
-        rc = np.sqrt(x * x + y * y)
-        ring_zone = smoothstep(0.2, 0.3, rc)                  # keep the strokes off the puff's middle
-        # One arc per lobe: the side of its edge facing the puff's centre.
-        toward = -(np.arctan2(cy, cx))
-        facing = np.cos(np.arctan2(y - cy, x - cx) + toward + math.pi)
-        arc = smoothstep(-0.1, 0.25, facing)
-        ink = np.maximum(ink, line * inside * ring_zone * arc)
+        line = 1 - smoothstep(a.width * 0.5 - a.softness, a.width * 0.5 + a.softness, np.abs(dist - rad * 0.95))
+        # The side of the bump facing the body's centre, faded at its ends.
+        facing = -((x - cx) * cx + (y - cy) * cy) / (np.maximum(dist, 1e-6) * max(math.hypot(cx, cy), 1e-6))
+        ink = np.maximum(ink, line * body_alpha * smoothstep(0.1, 0.5, facing))
     ink *= alpha
-    rgb = 1 - ink
-    return alpha, rgb
+    return alpha, 1 - ink
 
 
 def stripes(a):
@@ -468,7 +462,7 @@ def main(argv=None):
     sp.add_argument("--tongues", type=int, default=3); sp.add_argument("--width", type=float, default=0.16)
     sp.add_argument("--softness", type=float, default=0.012)
     sp = sub.add_parser("puff"); common(sp)
-    sp.add_argument("--lobes", type=int, default=4); sp.add_argument("--strokes", type=int, default=2)
+    sp.add_argument("--lobes", type=int, default=6); sp.add_argument("--strokes", type=int, default=3)
     sp.add_argument("--width", type=float, default=0.07); sp.add_argument("--softness", type=float, default=0.012)
     sp = sub.add_parser("stripes"); common(sp)
     sp.add_argument("--bands", type=int, default=7); sp.add_argument("--noise", type=float, default=0.15)
