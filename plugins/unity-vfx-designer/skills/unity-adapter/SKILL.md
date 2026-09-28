@@ -68,7 +68,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `auto_frame` | true | Each view is re-framed on the pixels the effect actually covers over all times (centred, ~80% of the frame) |
 | `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
-| `volume_profile` | none | **The game scene's VolumeProfile** (`Assets/...asset`). Without it the capture uses whatever volumes the open scene has, often a different tonemapping than the game, and colors cannot be judged. Find it once per project (the scene's global Volume) and pass it on every capture |
+| `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it |
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
 
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never

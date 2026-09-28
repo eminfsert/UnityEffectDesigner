@@ -75,7 +75,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public bool PostProcessing = true;
         /// <summary>
         /// VolumeProfile asset applied as a top-priority global volume during the capture, so the
-        /// effect is judged under the game scene's tonemapping and bloom, not whatever the open scene has.
+        /// effect is judged under the game scene's post-processing. Defaults to the project's
+        /// ProjectSettings/EffectDesigner.json volume_profile; scene volumes never reach the capture.
         /// </summary>
         public string VolumeProfile;
         /// <summary>Re-frame each view on the visible pixels (ignored when FramingRadius is set).</summary>

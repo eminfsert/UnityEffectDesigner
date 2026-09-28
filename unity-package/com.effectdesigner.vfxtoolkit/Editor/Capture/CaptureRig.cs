@@ -23,9 +23,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
     /// <summary>
     /// An isolated preview scene holding a copy of the effect, a capture camera and an
     /// optional key light. Nothing from the open scenes is rendered and nothing in them
-    /// is modified. Global Volumes of the loaded scenes and the pipeline's default volume
-    /// profile still apply, which may not match the game scene: pass a VolumeProfile to
-    /// render under a specific scene's tonemapping and bloom.
+    /// is modified. Volumes in the open scenes do not reach it either (SRP only blends volumes
+    /// the camera's stage renders), so without a profile only the pipeline's default profiles
+    /// (global + quality level + custom) apply, which may differ from the game scene: pass the
+    /// game's VolumeProfile to render under its tonemapping, bloom and color adjustments.
     /// </summary>
     sealed class CaptureRig : IDisposable
     {
@@ -132,9 +133,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// <summary>Tonemapping and bloom the capture camera rendered with (call after a Render).</summary>
         public PostProcessInfo DescribePostProcessing()
         {
-            var info = new PostProcessInfo { volumeProfile = _volumeProfilePath ?? "(loaded scenes + pipeline default)", tonemapping = "unknown" };
+            var info = new PostProcessInfo { volumeProfile = _volumeProfilePath ?? "(pipeline defaults only: global + quality)", tonemapping = "unknown" };
 #if VFXTOOLKIT_URP
-            var stack = VolumeManager.instance.stack;
+            // A camera with its own stack (volume updates "via scripting") does not use the shared one.
+            var stack = _camera.GetUniversalAdditionalCameraData().volumeStack ?? VolumeManager.instance.stack;
             var tonemapping = stack?.GetComponent<Tonemapping>();
             if (tonemapping != null)
                 info.tonemapping = tonemapping.IsActive() ? tonemapping.mode.value.ToString() : "None";

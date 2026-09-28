@@ -77,6 +77,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 frameSize = request.FrameSize,
             };
 
+            if (string.IsNullOrWhiteSpace(request.VolumeProfile))
+                request.VolumeProfile = EffectDesignerSettings.Load().VolumeProfile;
+
             string folder = PrepareOutputFolder(request, source.name);
             result.outputFolder = folder;
 
@@ -158,9 +161,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     var statsReference = rig.RenderBackgroundOnly(request.Backgrounds[0].Color).GetPixels32();
                     result.colorStatsFor = result.rows[0];
                     result.postProcessing = rig.DescribePostProcessing();
-                    if (request.VolumeProfile == null)
-                        result.warnings.Add($"Rendered with the loaded scenes' volumes (tonemapping: {result.postProcessing.tonemapping}). " +
-                                            "Pass volume_profile with the game scene's VolumeProfile so colors match the game.");
+                    if (string.IsNullOrWhiteSpace(request.VolumeProfile))
+                        result.warnings.Add($"Rendered with the pipeline's default volume profiles only (global + quality level; tonemapping: {result.postProcessing.tonemapping}). " +
+                                            "Scene volumes never reach captures, so colors may not match the game: pass volume_profile, or set it once " +
+                                            "for the project (select the game's VolumeProfile > Assets > Effect Designer > Use As Capture Volume Profile).");
 
                     // Pass 2: render. Sampling once per time and rendering all views keeps it cheap.
                     var sheet = new ContactSheet(request.Times, result.rows.Count, request.FrameSize);

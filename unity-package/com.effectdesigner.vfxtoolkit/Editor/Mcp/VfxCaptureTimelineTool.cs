@@ -54,7 +54,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Render URP post-processing (bloom, tonemapping) from the project's global volumes. Default true.", Required = false)]
             public bool? post_processing { get; set; }
 
-            [ToolParameter("VolumeProfile asset (Assets/...asset) of the game scene the effect plays in, applied as a top-priority global volume so tonemapping and bloom match the game. Strongly recommended for color judgments.", Required = false)]
+            [ToolParameter("VolumeProfile asset (Assets/...asset) of the game scene the effect plays in, applied as a top-priority global volume so post-processing matches the game. Defaults to volume_profile in ProjectSettings/EffectDesigner.json. Scene volumes never reach captures.", Required = false)]
             public string volume_profile { get; set; }
 
             [ToolParameter("Output folder (project-relative or absolute). Default Library/VFXToolkit/Captures.", Required = false)]

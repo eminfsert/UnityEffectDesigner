@@ -7,6 +7,7 @@ namespace UnityEngine.Rendering.Universal
         public bool renderPostProcessing { get; set; }
         public AntialiasingMode antialiasing { get; set; }
         public UnityEngine.LayerMask volumeLayerMask { get; set; }
+        public UnityEngine.Rendering.VolumeStack volumeStack { get; set; }
     }
     public static class CameraExtensions
     {

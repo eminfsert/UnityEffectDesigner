@@ -64,9 +64,11 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
 - One PNG per frame: `<view>_<background>_t<time>.png`.
 - `particleCounts` per time and `systemParticleCounts` per system per time, framing, and
   warnings (e.g. a sub-emitter that never produced particles).
-- `postProcessing`: tonemapping and bloom in effect. Pass `volume_profile` (the game scene's
-  VolumeProfile) so the capture renders under the game's settings; the open scene's volumes
-  often differ (e.g. tonemapping None vs Neutral).
+- `postProcessing`: tonemapping and bloom in effect. Volumes in the open scenes never reach
+  the capture's preview scene, so without `volume_profile` only the pipeline's default
+  profiles (global + quality level) apply. Pass the game scene's VolumeProfile, or set it
+  once per project: select it, then **Assets → Effect Designer → Use As Capture Volume
+  Profile** (writes `ProjectSettings/EffectDesigner.json`, used by every capture).
 - `colorStats` per time (first view/background): coverage, `washedOut` (share of bright
   pixels that lost their color, e.g. from a white HDR tint), mean saturation, dominant hue.
   Most frames washed out gives a warning.

@@ -71,6 +71,23 @@ created, or patched if it exists:
 - Several systems can share one material path. Define it fully once and reference it by
   path elsewhere.
 
+## Calibration notes (measured in a real project, Neutral tonemapping)
+
+Additive `Stylized Unlit` sparks, particle colors `#FFC247`→`#FFF4D6`:
+
+| Tint | Dominant hue | Reads as |
+|---|---|---|
+| `#FFFFFF` @2 | washed out (77–100% colorless) | white/lemon |
+| `#FFB030` @1 | 41–44° | gold / amber |
+| `#FFB030` @0 ≈ `#FF8A1A` @0.5 | 32–36° | orange amber, "embers" |
+
+- **Judge color only under the game's volume profile.** In that project the scene's
+  ColorAdjustments (saturation +25, contrast +5) raised saturation from ~0.52 to ~0.8 and
+  removed blue entirely. The same material looks different in and out of the game.
+- Additive layers disappear on bright backgrounds (light-background captures:
+  faint cream streaks). If the game has daylight or sand scenes, pair them with an
+  alpha-blended darker companion layer.
+
 ## Writing a new shader
 
 ```hlsl

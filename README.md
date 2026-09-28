@@ -40,6 +40,8 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 - [x] `vfx_compile_report`: shader hatalarını satır numarasıyla + property sözleşmesi kontrolü
 - [x] `VFXCore.hlsl` + `Stylized Unlit` partikül shader'ı, tarif içinde satır içi materyal
 - [x] `vfx-shaders` skill'i
+- [x] Capture: renk ölçümü (washedOut, doygunluk, ton), oyunun volume profile'ı ile render (proje ayarı)
+- [ ] Capture: sistem başına renk ölçümü (diğer katmanlar kapalıyken)
 - [ ] `vfx_project_check`
 - [ ] Ajanlar ve `/vfx:create` orkestrasyonu
 - [ ] VFX Graph şablon kütüphanesi
