@@ -72,6 +72,8 @@ for i, (shape, color) in enumerate([(disk, (255, 230, 150)), (disk, (240, 150, 6
     Image.fromarray(ref).save(f"{out}/ref{i}.png")
     cap = np.zeros((120, 160, 3), np.uint8); cap[:] = (78, 138, 58)           # capture on a ground color
     cap[shape] = color
+    if i == 2:
+        cap[100:112, 10:40] = (20, 34, 16)                                    # the same smoke over the ground
     Image.fromarray(cap).save(f"{out}/cap/three_quarter_dark_t{[0, 0.2, 0.5][i]:.3f}.png")
 PY
   python3 "$R" sheet "$out/s" --inputs "$out"/ref0.png "$out"/ref1.png "$out"/ref2.png --times 0,0.2,0.5 > /dev/null
@@ -85,7 +87,7 @@ f = ref["frames"]
 bad = []
 if not (f[0]["white"] > 0.9 or f[0]["bright"] > 0.9): bad.append(f"frame 0 should be white/bright: {f[0]}")
 if not (f[1]["bright"] > 0.9 and 20 <= f[1]["bright_hue"] <= 35): bad.append(f"frame 1 should be orange: {f[1]}")
-if not (f[2]["ink"] > 0.9): bad.append(f"frame 2 should be ink: {f[2]}")
+if not (f[2]["ink"] > 0.8 and f[2]["smoke"] > 0.1 and f[2]["ink"] + f[2]["smoke"] > 0.99): bad.append(f"frame 2 should be ink + smoke: {f[2]}")
 if abs(f[1]["coverage"] - 0.26) > 0.03: bad.append(f"grass (and its dark stripes) not excluded: coverage {f[1]['coverage']}")
 if f[2]["coverage"] < 0.13: bad.append(f"dark smoke over grass should count as effect: coverage {f[2]['coverage']}")
 s = cmp["summary"]
