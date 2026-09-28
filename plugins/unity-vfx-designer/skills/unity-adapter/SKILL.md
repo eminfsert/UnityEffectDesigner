@@ -68,11 +68,13 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `auto_frame` | true | Each view is re-framed on the pixels the effect actually covers over all times (centred, ~80% of the frame) |
 | `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
+| `volume_profile` | none | **The game scene's VolumeProfile** (`Assets/...asset`). Without it the capture uses whatever volumes the open scene has, often a different tonemapping than the game, and colors cannot be judged. Find it once per project (the scene's global Volume) and pass it on every capture |
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
 
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never
 judge an effect from the numbers alone. Use `systemParticleCounts` (alive particles per system per time) to confirm every layer
 and sub-emitter is active when the spec says it should be, `particleCounts` for totals,
+`postProcessing` (tonemapping and bloom actually used; colors are only valid under the game's),
 `colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
 their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
 `viewFraming` (look-at point and distance per view) to repeat the same framing later,

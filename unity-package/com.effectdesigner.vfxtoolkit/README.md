@@ -64,6 +64,9 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
 - One PNG per frame: `<view>_<background>_t<time>.png`.
 - `particleCounts` per time and `systemParticleCounts` per system per time, framing, and
   warnings (e.g. a sub-emitter that never produced particles).
+- `postProcessing`: tonemapping and bloom in effect. Pass `volume_profile` (the game scene's
+  VolumeProfile) so the capture renders under the game's settings; the open scene's volumes
+  often differ (e.g. tonemapping None vs Neutral).
 - `colorStats` per time (first view/background): coverage, `washedOut` (share of bright
   pixels that lost their color, e.g. from a white HDR tint), mean saturation, dominant hue.
   Most frames washed out gives a warning.
@@ -79,7 +82,7 @@ Creates or updates a hierarchy of Shuriken particle systems from one JSON recipe
   (bound by reflection, so nothing is left out), plus `emission.bursts`, `sub_emitters`,
   `custom_data`, `renderer.vertex_streams` and texture-sheet `sprites`.
 - Curves: `1.5`, `[min, max]`, `[[t, v], ...]`, `{"ease": "ease_out_expo", "from": 1, "to": 0}`.
-  Colors: `#hex`, `$palette` names, HDR `{"color": "#hex", "intensity": stops}`
+  Colors: `#hex`, `$palette` names, HDR `{"color": "#hex", "intensity": stops}` (stops of linear light, like Unity's HDR picker)
   (particle colors are 8-bit in Shuriken, so HDR is rescaled with a warning; glow belongs in the material).
   Angles in degrees with a `_deg` suffix (`start_rotation_deg`).
 - **Validated before anything changes:** on any error nothing is modified and all problems

@@ -35,7 +35,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
     /// Converts recipe JSON into Unity values. The notation is designed for agents:
     ///   curves:    1.5 | [min, max] | {"curve": [[t, v], ...]} | {"ease": "ease_out_expo", "from": 1, "to": 0}
     ///              | {"curve_min": ..., "curve_max": ...} ; optional "multiplier"
-    ///   colors:    "#RRGGBB[AA]" | "$palette_name" | {"color": "#..", "intensity": 2} (HDR, in stops) | [r, g, b, a]
+    ///   colors:    "#RRGGBB[AA]" | "$palette_name" | {"color": "#..", "intensity": 2} (HDR, stops of linear light) | [r, g, b, a]
     ///   gradients: "#hex" | ["#a", "#b"] (random between two) | {"gradient": {...}} | {"gradient_min": .., "gradient_max": ..}
     ///              | {"random_color": {...}} ; gradient = {"colors": [[t, color], ...] or [color, ...], "alphas": [[t, a], ...], "mode": "blend|fixed"}
     ///   assets:    "Assets/Path/To/Asset.ext" (materials may also be inline objects, see MaterialBuilder)
@@ -116,10 +116,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     var baseToken = obj["color"] ?? obj["hex"];
                     if (baseToken != null)
                     {
-                        var c = ToColor(baseToken, ctx, where);
-                        float stops = obj["intensity"]?.Value<float>() ?? 0f;
-                        float scale = Mathf.Pow(2f, stops);
-                        var hdr = new Color(c.r * scale, c.g * scale, c.b * scale, c.a);
+                        // Intensity is in stops of linear light, like Unity's HDR color picker.
+                        var hdr = ColorSpaceMath.WithIntensity(ToColor(baseToken, ctx, where), obj["intensity"]?.Value<float>() ?? 0f);
                         if (obj["alpha"] != null) hdr.a = obj["alpha"].Value<float>();
                         return hdr;
                     }

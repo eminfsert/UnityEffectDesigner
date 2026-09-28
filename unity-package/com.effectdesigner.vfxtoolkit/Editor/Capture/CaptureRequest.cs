@@ -73,6 +73,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public float FieldOfView = 35f;
         public bool AddLight = true;
         public bool PostProcessing = true;
+        /// <summary>
+        /// VolumeProfile asset applied as a top-priority global volume during the capture, so the
+        /// effect is judged under the game scene's tonemapping and bloom, not whatever the open scene has.
+        /// </summary>
+        public string VolumeProfile;
         /// <summary>Re-frame each view on the visible pixels (ignored when FramingRadius is set).</summary>
         public bool AutoFrame = true;
         public string OutputFolder = "Library/VFXToolkit/Captures";
@@ -153,6 +158,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 request.AddLight = json["add_light"].Value<bool>();
             if (json["auto_frame"] != null)
                 request.AutoFrame = json["auto_frame"].Value<bool>();
+            request.VolumeProfile = (string)json["volume_profile"];
             if (json["post_processing"] != null)
                 request.PostProcessing = json["post_processing"].Value<bool>();
             if (!string.IsNullOrWhiteSpace((string)json["output_folder"]))

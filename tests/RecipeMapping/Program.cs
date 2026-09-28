@@ -63,6 +63,7 @@ static class Program
         }
 
         failures += CheckColorStats();
+        failures += CheckHdrIntensity();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -85,6 +86,21 @@ static class Program
         Console.WriteLine(ok
             ? "PASS color stats: gold washedOut 0 (hue " + gold.hue.ToString("0") + "), near-white washedOut 1"
             : $"FAIL color stats: gold washedOut {gold.washedOut} hue {gold.hue} coverage {gold.coverage}, near-white washedOut {washed.washedOut}");
+        return ok ? 0 : 1;
+    }
+
+    // HDR intensity is in stops of linear light (Unity's HDR picker convention): +1 stop doubles the linear value.
+    static int CheckHdrIntensity()
+    {
+        var baseColor = new UnityEngine.Color(1f, 0.69f, 0.188f, 1f); // #FFB030
+        var hdr = ColorSpaceMath.WithIntensity(baseColor, 1f);
+        float ratioR = ColorSpaceMath.SrgbToLinear(hdr.r) / ColorSpaceMath.SrgbToLinear(baseColor.r);
+        float ratioB = ColorSpaceMath.SrgbToLinear(hdr.b) / ColorSpaceMath.SrgbToLinear(baseColor.b);
+        float roundTrip = ColorSpaceMath.LinearToSrgb(ColorSpaceMath.SrgbToLinear(0.42f));
+        bool ok = Math.Abs(ratioR - 2f) < 1e-3f && Math.Abs(ratioB - 2f) < 1e-3f && Math.Abs(roundTrip - 0.42f) < 1e-5f && hdr.a == 1f;
+        Console.WriteLine(ok
+            ? $"PASS HDR intensity: +1 stop doubles linear light (#FFB030 @1 stored as {hdr.r:0.###}, {hdr.g:0.###}, {hdr.b:0.###})"
+            : $"FAIL HDR intensity: linear ratios R {ratioR}, B {ratioB}, round trip {roundTrip}");
         return ok ? 0 : 1;
     }
 

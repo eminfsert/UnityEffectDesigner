@@ -3,15 +3,29 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 #if VFXTOOLKIT_URP
+using UnityEditor;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 #endif
 
 namespace EffectDesigner.VFXToolkit.Editor.Capture
 {
+    /// <summary>Tonemapping and bloom a capture was rendered with.</summary>
+    public sealed class PostProcessInfo
+    {
+        public string volumeProfile;
+        public string tonemapping;
+        public bool bloom;
+        public float bloomThreshold;
+        public float bloomIntensity;
+    }
+
     /// <summary>
     /// An isolated preview scene holding a copy of the effect, a capture camera and an
     /// optional key light. Nothing from the open scenes is rendered and nothing in them
-    /// is modified; project-wide global Volumes (bloom, tonemapping) still apply.
+    /// is modified. Global Volumes of the loaded scenes and the pipeline's default volume
+    /// profile still apply, which may not match the game scene: pass a VolumeProfile to
+    /// render under a specific scene's tonemapping and bloom.
     /// </summary>
     sealed class CaptureRig : IDisposable
     {
@@ -19,12 +33,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         readonly Camera _camera;
         readonly RenderTexture _target;
         readonly Texture2D _readback;
+        readonly string _volumeProfilePath;
 
         public GameObject Effect { get; }
         public int FrameSize { get; }
 
-        public CaptureRig(GameObject source, int frameSize, float fieldOfView, bool addLight, bool postProcessing)
+        public CaptureRig(GameObject source, int frameSize, float fieldOfView, bool addLight, bool postProcessing, string volumeProfile = null)
         {
+            _volumeProfilePath = string.IsNullOrWhiteSpace(volumeProfile) ? null : volumeProfile;
             FrameSize = frameSize;
             _scene = EditorSceneManager.NewPreviewScene();
 
@@ -57,6 +73,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             _camera.allowHDR = true;
             _camera.allowMSAA = true;
             ConfigurePipelineCamera(postProcessing);
+            AddVolume();
 
             _target = new RenderTexture(frameSize, frameSize, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
             {
@@ -83,6 +100,53 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             if (main != null && main.TryGetComponent<UniversalAdditionalCameraData>(out var mainData))
                 data.volumeLayerMask = mainData.volumeLayerMask;
 #endif
+        }
+
+        void AddVolume()
+        {
+            if (_volumeProfilePath == null)
+                return;
+#if VFXTOOLKIT_URP
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(_volumeProfilePath);
+            if (profile == null)
+            {
+                // Thrown from the constructor, so Dispose will not run: close the scene here.
+                EditorSceneManager.ClosePreviewScene(_scene);
+                throw new ArgumentException($"No VolumeProfile at '{_volumeProfilePath}'.");
+            }
+            var go = new GameObject("VFXCapture_Volume") { hideFlags = HideFlags.DontSave };
+            SceneManager.MoveGameObjectToScene(go, _scene);
+            var volume = go.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 10000f;
+            volume.weight = 1f;
+            volume.sharedProfile = profile;
+            var data = _camera.GetUniversalAdditionalCameraData();
+            data.volumeLayerMask |= 1 << go.layer;
+#else
+            EditorSceneManager.ClosePreviewScene(_scene);
+            throw new ArgumentException("volume_profile needs URP.");
+#endif
+        }
+
+        /// <summary>Tonemapping and bloom the capture camera rendered with (call after a Render).</summary>
+        public PostProcessInfo DescribePostProcessing()
+        {
+            var info = new PostProcessInfo { volumeProfile = _volumeProfilePath ?? "(loaded scenes + pipeline default)", tonemapping = "unknown" };
+#if VFXTOOLKIT_URP
+            var stack = VolumeManager.instance.stack;
+            var tonemapping = stack?.GetComponent<Tonemapping>();
+            if (tonemapping != null)
+                info.tonemapping = tonemapping.IsActive() ? tonemapping.mode.value.ToString() : "None";
+            var bloom = stack?.GetComponent<Bloom>();
+            if (bloom != null)
+            {
+                info.bloom = bloom.IsActive();
+                info.bloomThreshold = bloom.threshold.value;
+                info.bloomIntensity = bloom.intensity.value;
+            }
+#endif
+            return info;
         }
 
         public Transform CameraTransform => _camera.transform;

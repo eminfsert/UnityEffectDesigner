@@ -48,6 +48,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// <summary>Color measurements per time, for the first view on the first background (see colorStatsFor).</summary>
         public List<FrameColorStats> colorStats = new List<FrameColorStats>();
         public string colorStatsFor;
+        /// <summary>Tonemapping and bloom in effect during the capture. Colors are only comparable to the game under the same settings.</summary>
+        public PostProcessInfo postProcessing;
         public List<string> warnings = new List<string>();
     }
 
@@ -80,7 +82,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
             try
             {
-                using (var rig = new CaptureRig(source, request.FrameSize, request.FieldOfView, request.AddLight, request.PostProcessing))
+                using (var rig = new CaptureRig(source, request.FrameSize, request.FieldOfView, request.AddLight, request.PostProcessing, request.VolumeProfile))
                 {
                     var sampler = new EffectSampler(rig.Effect, request.Seed);
                     result.particleSystems = sampler.ParticleSystemCount;
@@ -155,6 +157,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     rig.Aim(framings[0].Center, framings[0].Distance, framings[0].DepthRadius, request.Views[0]);
                     var statsReference = rig.RenderBackgroundOnly(request.Backgrounds[0].Color).GetPixels32();
                     result.colorStatsFor = result.rows[0];
+                    result.postProcessing = rig.DescribePostProcessing();
+                    if (request.VolumeProfile == null)
+                        result.warnings.Add($"Rendered with the loaded scenes' volumes (tonemapping: {result.postProcessing.tonemapping}). " +
+                                            "Pass volume_profile with the game scene's VolumeProfile so colors match the game.");
 
                     // Pass 2: render. Sampling once per time and rendering all views keeps it cheap.
                     var sheet = new ContactSheet(request.Times, result.rows.Count, request.FrameSize);

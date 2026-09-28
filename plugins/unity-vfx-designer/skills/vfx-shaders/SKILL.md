@@ -57,7 +57,8 @@ created, or patched if it exists:
 
 - `blend`: `additive`, `alpha`, `premultiplied`, `multiply`, `soft_additive`.
 - Property names are the shader's (`_TintColor`), with "did you mean" suggestions if wrong.
-- **HDR belongs here.** Material colors keep their intensity (in stops: 2.5 → ×5.7).
+- **HDR belongs here.** Material colors keep their intensity. `intensity` is in stops of
+  **linear light**, like Unity's HDR color picker: +1 doubles what the GPU sees, 2.5 → ×5.7.
   Particle colors are 8-bit and only carry hue and alpha variation.
 - **Glow with color, not with white.** The final color is tint × particle color × texture.
   A white HDR tint pushes every channel past 1, and tonemapping turns the palette white

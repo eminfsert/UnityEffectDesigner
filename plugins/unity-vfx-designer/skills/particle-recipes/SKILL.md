@@ -100,7 +100,7 @@ Eases: `linear`, `ease_in_quad`, `ease_out_quad`, `ease_in_out_quad`, `ease_in_c
 degrees: `"start_rotation_deg": [0, 360]`, `"z_deg": [-90, 90]`.
 
 **Colors:** `"#FFC247"`, `"#FFC24780"` (with alpha), `"$accent"` (palette),
-`{"color": "#9B5CFF", "intensity": 2}` (HDR, intensity in stops: x4 here), `[r, g, b, a]`.
+`{"color": "#9B5CFF", "intensity": 2}` (HDR, stops of linear light: x4 here), `[r, g, b, a]`.
 
 **Particle colors are 8-bit.** Shuriken stores start color, color over lifetime and every
 other particle color field as Color32, so HDR values are clipped per channel: an HDR
