@@ -11,7 +11,7 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 | Yol | İçerik |
 |---|---|
 | `.claude-plugin/marketplace.json` | Plugin marketplace tanımı |
-| `plugins/unity-vfx-designer/` | Claude Code plugin'i (skill'ler, ajanlar, komutlar) |
+| `plugins/unity-vfx-designer/` | Claude Code plugin'i `vfx` (skill'ler, ajanlar) |
 | `unity-package/com.effectdesigner.vfxtoolkit/` | Unity editor paketi: MCP for Unity'ye VFX custom tool'ları ekler |
 | `tools/` | Geliştirme yardımcıları (ör. Unity `.meta` üreteci) |
 
@@ -23,13 +23,30 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 ## Kurulum
 
 1. Unity Package Manager → *Add package from git URL*:
-   `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit`
+   `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
 2. Claude Code:
    ```
-   /plugin marketplace add eminfsert/UnityEffectDesigner
-   /plugin install unity-vfx-designer@unity-effect-designer
+   /plugin marketplace add eminfsert/UnityEffectDesigner@claude/trusting-ritchie-uze78h
+   /plugin install vfx@unity-effect-designer
    ```
 3. MCP istemcisini yeniden bağla (yeni custom tool'ların görünmesi için).
+4. Oyunun VolumeProfile'ını seç → **Assets → Effect Designer → Use As Capture Volume Profile**
+   (capture'lar oyunun renkleriyle alınsın diye).
+5. Doku üretimi için Python + `numpy` + `Pillow` (yoksa ajanlar Unity içinde C# ile üretir).
+
+## Kullanım
+
+| Komut | Ne yapar |
+|---|---|
+| `/vfx:create <betimleme> [referans görseller]` | Yeni efekt: brief → spec + konsept panosu (onayın) → üretim → capture'la eleştiri → en fazla 3 iyileştirme turu |
+| `/vfx:iterate <efekt> <geri bildirim>` | "Daha agresif", "daha mor", "kumda okunmuyor" gibi geri bildirimi somut değişikliklere çevirip uygular |
+| `/vfx:review <prefab>` | Herhangi bir efekti capture alıp puanlar, düzeltme listesi verir |
+
+Ekip (subagent'lar): `vfx-architect` (manifest ve sözleşmeler), `texture-artist`
+(maskeler, flipbook'lar, noise), `shader-artist` (özel shader'lar), `particle-artist`
+(Shuriken sistemleri, materyaller, prefab), `vfx-critic` (capture + puanlama). Director ana
+oturumdur: seninle konuşur, ekibi yönetir. Her efektin tasarım dosyaları
+`Assets/VFX/<Id>/Design/` altında: spec, manifest, tarifler, eleştiriler, değişiklik günlüğü.
 
 ## Durum (MVP-1)
 
@@ -43,7 +60,9 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
 - [x] Capture: renk ölçümü (washedOut, doygunluk, ton), oyunun volume profile'ı ile render (proje ayarı)
 - [ ] Capture: sistem başına renk ölçümü (diğer katmanlar kapalıyken)
 - [ ] `vfx_project_check`
-- [ ] Ajanlar ve `/vfx:create` orkestrasyonu
+- [x] Ajanlar (architect, texture, shader, particle, critic) ve `/vfx:create`, `/vfx:iterate`, `/vfx:review`
+- [x] Doku üretici `vfxtex.py` (glow, halka, yıldız, streak, slash, noise, smoke flipbook, SVG)
+- [ ] Uçtan uca `/vfx:create` testi gerçek projede (requests/003)
 - [ ] VFX Graph şablon kütüphanesi
 
 Unity `.meta` dosyaları `tools/gen_unity_meta.py` ile üretilir; pakete yeni dosya

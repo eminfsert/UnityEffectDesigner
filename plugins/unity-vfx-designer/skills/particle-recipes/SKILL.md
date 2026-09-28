@@ -1,6 +1,7 @@
 ---
 name: particle-recipes
 description: Reference for building Shuriken particle systems with the vfx_apply_particle_recipe tool — recipe format, value notation (curves, easing, HDR colors, palette), module keys, sub-emitters, custom data and vertex streams, common pitfalls, and stylized VFX patterns. Load whenever you create or change a ParticleSystem for an effect.
+user-invocable: false
 ---
 
 # Particle recipes

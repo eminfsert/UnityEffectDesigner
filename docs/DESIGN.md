@@ -20,6 +20,20 @@ uzmanlaşmış ajanlardan oluşan bir "VFX stüdyosu".
 
 ---
 
+## Uygulama notları (v0.7)
+
+Tasarımdan uygulamaya geçerken değişenler:
+- Komutlar Claude Code'un güncel önerisine göre **kullanıcıya açık skill** olarak yazıldı;
+  plugin adı `vfx`, komutlar `/vfx:create`, `/vfx:iterate`, `/vfx:review`.
+- Subagent'lar alt ajan başlatabiliyor, ama Director yine ana oturumda: kullanıcıyla
+  konuşan ve konsept panosunda onay alan o.
+- MVP ekibi: architect, texture-artist, shader-artist, particle-artist, vfx-critic. Mesh ve
+  Motion rolleri şimdilik particle-artist ve Director'da; ayrı ajanlar sonraki faz.
+- Shader tarafı önce hazır `Stylized Unlit` shader'ını kullanır; özel shader ancak gerekçeyle.
+- Doku üretimi `vfxtex.py` ile (Python yoksa Unity içinde C#).
+- Kalite kararları capture ölçümlerine dayanır: katman başına partikül sayısı, renk
+  (washedOut, doygunluk, ton), oyunun volume profile'ı altında render.
+
 ## 1. Temel karar: Skill mi, Plugin mi?
 
 **Cevap: Plugin.** Skill'ler ve ajanlar plugin'in *içinde* yaşar.

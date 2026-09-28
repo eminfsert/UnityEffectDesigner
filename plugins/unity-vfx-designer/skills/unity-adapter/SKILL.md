@@ -1,6 +1,7 @@
 ---
 name: unity-adapter
 description: How the Effect Designer agents talk to the Unity Editor through MCP for Unity (CoplayDev/unity-mcp) and the VFX Toolkit custom tools. Load before any Unity call in a VFX task — building particle systems or VFX Graphs, writing shaders or materials, importing textures, or capturing/reviewing an effect with vfx_capture_timeline.
+user-invocable: false
 ---
 
 # Unity adapter

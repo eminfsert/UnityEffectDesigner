@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "unity-vfx-designer",
+      "name": "vfx",
       "source": "./plugins/unity-vfx-designer",
-      "description": "A team of VFX agents that turns described or referenced effects into working Unity 6 URP effects (Shuriken + VFX Graph, shaders, textures, meshes)."
+      "description": "Stylized Unity VFX studio: /vfx:create directs specialist agents that build and review Unity 6 URP effects."
     }
   ]
 }

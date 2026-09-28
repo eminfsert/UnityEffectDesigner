@@ -1,6 +1,7 @@
 ---
 name: vfx-shaders
 description: Writing and checking URP effect shaders for the Effect Designer — the VFXCore.hlsl library, the ready-made "EffectDesigner/Particles/Stylized Unlit" shader and its vertex-stream contract, inline materials in particle recipes, HDR/bloom rules, and the vfx_compile_report loop. Load before writing or changing any shader or material for an effect.
+user-invocable: false
 ---
 
 # VFX shaders (Unity 6 URP)
