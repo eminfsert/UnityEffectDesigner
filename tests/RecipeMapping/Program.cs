@@ -103,9 +103,16 @@ static class Program
         float ratioR = ColorSpaceMath.SrgbToLinear(hdr.r) / ColorSpaceMath.SrgbToLinear(baseColor.r);
         float ratioB = ColorSpaceMath.SrgbToLinear(hdr.b) / ColorSpaceMath.SrgbToLinear(baseColor.b);
         float roundTrip = ColorSpaceMath.LinearToSrgb(ColorSpaceMath.SrgbToLinear(0.42f));
-        bool ok = Math.Abs(ratioR - 2f) < 1e-3f && Math.Abs(ratioB - 2f) < 1e-3f && Math.Abs(roundTrip - 0.42f) < 1e-5f && hdr.a == 1f;
+        // [HDR] material properties get the linear value: #5A3000 @0 -> (0.102, 0.030, 0), white @1 -> 2.
+        var dark = ColorSpaceMath.ForHdrProperty(new UnityEngine.Color(0x5A / 255f, 0x30 / 255f, 0f, 1f), true);
+        var whiteUp = ColorSpaceMath.ForHdrProperty(ColorSpaceMath.WithIntensity(new UnityEngine.Color(1f, 1f, 1f, 1f), 1f), true);
+        var gammaProject = ColorSpaceMath.ForHdrProperty(new UnityEngine.Color(0.5f, 0.5f, 0.5f, 1f), false);
+        bool ok = Math.Abs(ratioR - 2f) < 1e-3f && Math.Abs(ratioB - 2f) < 1e-3f && Math.Abs(roundTrip - 0.42f) < 1e-5f && hdr.a == 1f
+                  && Math.Abs(dark.r - 0.102f) < 0.001f && Math.Abs(dark.g - 0.030f) < 0.001f && dark.b == 0f
+                  && Math.Abs(whiteUp.r - 2f) < 1e-3f && Math.Abs(ColorSpaceMath.ForHdrProperty(hdr, true).r / ColorSpaceMath.SrgbToLinear(baseColor.r) - 2f) < 1e-3f
+                  && gammaProject.r == 0.5f;
         Console.WriteLine(ok
-            ? $"PASS HDR intensity: +1 stop doubles linear light (#FFB030 @1 stored as {hdr.r:0.###}, {hdr.g:0.###}, {hdr.b:0.###})"
+            ? $"PASS HDR intensity: +1 stop doubles linear light; [HDR] properties get linear values (#5A3000 -> {dark.r:0.###}, {dark.g:0.###}, {dark.b:0.###}; white @1 -> {whiteUp.r:0.###})"
             : $"FAIL HDR intensity: linear ratios R {ratioR}, B {ratioB}, round trip {roundTrip}");
         return ok ? 0 : 1;
     }

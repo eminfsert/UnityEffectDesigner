@@ -35,7 +35,7 @@ user-invocable: false
 - Palette: one dominant hue, a white-ish **core** for the hottest point, one **accent**, and
   a dark companion tone for readability on bright ground.
 - Glow comes from HDR on **materials** with **saturated tints**. White or overly intense
-  tints wash the palette out (see `vfx-shaders` calibration).
+  tints wash the palette out (see the color notes in `vfx-shaders`).
 - Saturation falls off over life: fresh = saturated and bright, old = desaturated and dim.
 
 ## Readability
@@ -88,8 +88,8 @@ in the review which captures a score rests on.
   intensity. Raising HDR intensity pushes more channels to the ceiling and moves the hue
   further toward white.
 - Control a layer's hue with its **particle color / tint hue**, and its brightness with
-  intensity. Calibration numbers from earlier effects are a starting point only: the same
-  values render differently with another shape, size, blend mode or volume profile.
+  intensity. Numbers from earlier effects are a starting point only: the same values
+  render differently with another shape, size, blend mode or volume profile.
 - Every color fix states its **acceptance test** in the stats the next capture returns,
   e.g. `systemColorStats.Sparks hue 35–50 and washedOut < 35% at 0.1–0.35 s`.
 

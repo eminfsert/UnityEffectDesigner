@@ -32,8 +32,10 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.4.2** (`colorStatsByBackground`, `systemColorStats`,
-   `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging).
+   needs **toolkit ≥ 0.4.3** (`colorStatsByBackground`, `systemColorStats`,
+   `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging, and
+   correct `[HDR]` material colors: effects built with ≤ 0.4.2 have too-light tints and
+   need their inline materials re-applied).
    Error responses carry it too (in their data). A missing field means an older toolkit: tell
    the user to update the package (Package Manager → the package → Update, or remove the
    `com.effectdesigner.vfxtoolkit` entry from `Packages/packages-lock.json` so the git

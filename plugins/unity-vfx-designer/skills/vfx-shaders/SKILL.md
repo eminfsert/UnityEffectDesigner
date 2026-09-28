@@ -61,6 +61,12 @@ created, or patched if it exists:
 - **HDR belongs here.** Material colors keep their intensity. `intensity` is in stops of
   **linear light**, like Unity's HDR color picker: +1 doubles what the GPU sees, 2.5 → ×5.7.
   Particle colors are 8-bit and only carry hue and alpha variation.
+- **Always give hex colors; the tool handles color spaces.** In a Linear project Unity
+  linearizes plain Color properties itself but passes `[HDR]` Color properties to the GPU
+  as stored, so the tool (≥ 0.4.3) writes the linear value into `[HDR]` properties. Do not
+  set `[HDR]` colors with `manage_material` or `execute_code` using a hex's 0–1 values:
+  they would render lighter and yellower (`#5A3000` renders as `#A07800`). Toolkit
+  ≤ 0.4.2 had exactly that bug: re-apply the inline materials of effects built with it.
 - **Glow with color, not with white.** The final color is tint × particle color × texture.
   A white HDR tint pushes every channel past 1, and tonemapping turns the palette white
   (and often yellow-green). This was measured on a gold effect: 83–100% of its bright pixels
@@ -72,34 +78,30 @@ created, or patched if it exists:
 - Several systems can share one material path. Define it fully once and reference it by
   path elsewhere.
 
-## Calibration notes (measured in a real project, Neutral tonemapping)
+## Color notes (measured in a real project, Neutral tonemapping)
 
-Additive `Stylized Unlit` sparks, particle colors `#FFC247`→`#FFF4D6`:
-
-| Tint | Dominant hue | Reads as |
-|---|---|---|
-| `#FFFFFF` @2 | washed out (77–100% colorless) | white/lemon |
-| `#FFB030` @1 | 41–44° | gold / amber |
-| `#FFB030` @0 ≈ `#FF8A1A` @0.5 | 32–36° | orange amber, "embers" |
+Hue numbers measured before toolkit 0.4.3 were taken with over-bright `[HDR]` tints (see
+above) and have been removed; re-measure with `systemColorStats` rather than relying on a
+table.
 
 - **Judge color only under the game's volume profile.** In that project the scene's
   ColorAdjustments (saturation +25, contrast +5) raised saturation from ~0.52 to ~0.8 and
   removed blue entirely. The same material looks different in and out of the game.
 - Additive layers disappear on bright backgrounds (light-background captures:
   faint cream streaks). If the game has daylight or sand scenes, pair them with an
-  alpha-blended darker companion layer.
-- **These numbers are specific to that project and that shape.** A different mask size,
-  blend mode, overlap density or volume profile moves them. Use the table for a first
-  guess, then measure the layer's own `systemColorStats` and adjust.
+  alpha-blended darker companion layer, and check it alone (`systemColorStats`,
+  `system_frames`): a dark companion must measure dark.
 - **When a channel hits the ceiling, intensity stops controlling hue.** Once the dominant
-  channel clips, more intensity only raises the others, and the hue drifts toward
-  yellow/white. Set the hue with the particle color or the tint's hue at moderate
-  intensity (0–1 stops), and treat intensity as brightness only.
-- **Rendered hue runs a few degrees yellower than the hex.** For a red-dominant color the
-  hex hue is 60° × (G − B) / (R − B); bright additive layers measured 4–7° above it:
-  `#FFB030` (37°) rendered 41–44°, an off-white core `#FFE8A0` (45°) rendered 51°, lemon
-  rather than gold. For a gold that must read gold, pick hex hues around 32–40°; the
-  paler the color (high B), the less saturation survives.
+  channel clips (tint × particle color × texture > 1 before tonemapping), more intensity
+  only raises the others, and the hue drifts toward yellow/white. Set the hue with the
+  particle color or the tint's hue at moderate intensity (0–1 stops), and treat intensity
+  as brightness only.
+- Tint and particle color multiply in linear light, so two mid-saturated colors multiply
+  into a more saturated, darker one (`#FFB030` × `#FFB030` is deep orange). Keep one of
+  them near white when the other carries the hue.
+- The hex hue of a red-dominant color is 60° × (G − B) / (R − B). Layers overlapping
+  (a companion underneath, bloom from neighbours) shift the composite's hue; judge each
+  layer alone first.
 
 ## Writing a new shader
 

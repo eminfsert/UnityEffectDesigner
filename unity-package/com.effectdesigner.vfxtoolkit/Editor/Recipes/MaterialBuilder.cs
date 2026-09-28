@@ -124,7 +124,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             switch (shader.GetPropertyType(index))
             {
                 case ShaderPropertyType.Color:
-                    material.SetColor(name, RecipeValues.ToColor(value, ctx, where));
+                    var color = RecipeValues.ToColor(value, ctx, where);
+                    // [HDR] colors reach the GPU as stored (linear); plain colors are linearized by Unity.
+                    if ((shader.GetPropertyFlags(index) & ShaderPropertyFlags.HDR) != 0)
+                        color = ColorSpaceMath.ForHdrProperty(color, QualitySettings.activeColorSpace == ColorSpace.Linear);
+                    material.SetColor(name, color);
                     break;
                 case ShaderPropertyType.Float:
                 case ShaderPropertyType.Range:

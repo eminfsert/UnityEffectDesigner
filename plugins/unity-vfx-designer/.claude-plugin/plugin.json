@@ -1,6 +1,6 @@
 {
   "name": "vfx",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Stylized Unity VFX studio: /vfx:create directs specialist agents (architect, texture, shader, particle artists, critic) that build Unity 6 URP effects and review them from real captures. Requires MCP for Unity (CoplayDev/unity-mcp) and the Effect Designer VFX Toolkit Unity package.",
   "author": {
     "name": "eminfsert"

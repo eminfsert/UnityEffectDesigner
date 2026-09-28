@@ -5,9 +5,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 {
     /// <summary>
     /// sRGB transfer functions in managed code (Mathf's versions call into the engine), extended
-    /// above 1 for HDR values. Used to apply HDR intensity in linear light, as Unity's HDR color
-    /// picker does: in a Linear-space project the GPU sees the linear value, so "1 stop" must
-    /// double the linear value, not the gamma-encoded one (which would be ~x2.3 in linear).
+    /// above 1 for HDR values. Intensity is applied in linear light, as Unity's HDR color picker
+    /// does: "1 stop" doubles the linear value.
+    ///
+    /// Color spaces of material colors in a Linear-space project (measured in Unity 6 URP):
+    /// a plain Color property stores the sRGB (hex) value and Unity linearizes it for the GPU;
+    /// an [HDR] Color property is passed to the GPU as stored, so it must be given the linear
+    /// value. Writing the hex to an [HDR] property made every tint lighter and yellower
+    /// (#5A3000 rendered as #A07800).
     /// </summary>
     public static class ColorSpaceMath
     {
@@ -27,6 +32,17 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
         /// A gamma-encoded color (as materials store it) whose linear value is the input's linear
         /// value times 2^stops. Alpha is unchanged.
         /// </summary>
+        /// <summary>
+        /// The value to store in an [HDR] Color property for a color given as sRGB (hex, possibly with
+        /// intensity applied by <see cref="WithIntensity"/>): its linear value in a Linear-space project,
+        /// unchanged in a Gamma-space one. Alpha is unchanged.
+        /// </summary>
+        public static Color ForHdrProperty(Color srgb, bool linearColorSpace)
+        {
+            if (!linearColorSpace) return srgb;
+            return new Color(SrgbToLinear(srgb.r), SrgbToLinear(srgb.g), SrgbToLinear(srgb.b), srgb.a);
+        }
+
         public static Color WithIntensity(Color gamma, float stops)
         {
             if (stops == 0f) return gamma;

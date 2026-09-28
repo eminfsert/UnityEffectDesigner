@@ -193,12 +193,17 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     // Report where the effect's own maxParticleSize would have clamped particles at this
                     // camera distance (it was lifted for the capture), and from which distance the game would.
                     float closest = framings.Min(f => f.Distance);
-                    foreach (var (system, size, limit) in sampler.ClampedAt(closest, rig.TanHalfFov))
+                    foreach (var (system, size, peak, limit) in sampler.ClampedAt(closest, rig.TanHalfFov))
                     {
-                        float gameClampDistance = size / (2f * rig.TanHalfFov * limit);
+                        float seenDistance = size / (2f * rig.TanHalfFov * limit);
+                        float peakDistance = peak / (2f * rig.TanHalfFov * limit);
+                        string peakPart = peak > size * 1.02f
+                            ? FormattableString.Invariant($" ({peakDistance:0.#} m for its peak size {peak:0.##} m from start size x size curve, reached between 60 fps frames)")
+                            : "";
                         result.notes.Add(
-                            FormattableString.Invariant($"'{labels[system]}': particles up to {size:0.##} m exceed its maxParticleSize {limit:0.##} (share of screen height) at the capture distance {closest:0.#} m; ") +
-                            FormattableString.Invariant($"the limit was lifted for this capture. With a {request.FieldOfView:0}° camera the game clamps them when closer than {gameClampDistance:0.#} m."));
+                            FormattableString.Invariant($"'{labels[system]}': particles up to {size:0.##} m in the sampled frames exceed its maxParticleSize {limit:0.##} (share of screen height) at the capture distance {closest:0.#} m; ") +
+                            FormattableString.Invariant($"the limit was lifted for this capture. With a {request.FieldOfView:0}° camera the game clamps them when closer than {seenDistance:0.#} m") +
+                            peakPart + ".");
                     }
 
                     foreach (var view in request.Views)
@@ -230,7 +235,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     }
                     result.postProcessing = rig.DescribePostProcessing();
                     result.postProcessing.volumeProfileSource = profileSource;
-                    if (profileSource == null)
+                    if (!request.PostProcessing)
+                    {
+                        // The camera renders without post-processing; the volume stack is irrelevant.
+                        result.postProcessing.tonemapping = "off (post_processing false)";
+                        result.postProcessing.bloom = false;
+                        result.notes.Add("Rendered without post-processing (post_processing false): no tonemapping or bloom; colors are not the game's.");
+                    }
+                    else if (profileSource == null)
                         result.warnings.Add($"Rendered with the pipeline's default volume profiles only (global + quality level; tonemapping: {result.postProcessing.tonemapping}). " +
                                             "Scene volumes never reach captures, so colors may not match the game: pass volume_profile, or set it once " +
                                             "for the project (select the game's VolumeProfile > Assets > Effect Designer > Use As Capture Volume Profile).");

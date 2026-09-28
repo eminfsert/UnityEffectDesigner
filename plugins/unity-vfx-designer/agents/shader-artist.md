@@ -17,9 +17,9 @@ Do:
 2. After **every** write, run `vfx_compile_report` with the shader path and the contract
    as `expected_properties`. Fix until there are 0 errors and 0 contract violations.
 3. For glow and blend fixes on existing materials, change material properties (as an
-   inline material patch the particle artist applies, or `manage_material`). Follow the
-   calibration in `vfx-shaders`: saturated tints at 0.5–1.5 stops, never white HDR on
-   colored layers.
+   inline material patch the particle artist applies; not `manage_material`, which would
+   write hex values into `[HDR]` colors unconverted). Follow the color notes in
+   `vfx-shaders`: saturated tints at 0.5–1.5 stops, never white HDR on colored layers.
 4. Report shader paths, the compile report summary, property contracts and any
    requirement the project must meet (e.g. Opaque Texture for distortion).
 

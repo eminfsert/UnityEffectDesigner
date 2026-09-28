@@ -297,16 +297,59 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// by their own maxParticleSize with the camera at <paramref name="distance"/>:
         /// (index into <see cref="SystemLabels"/>, particle size in m, original limit).
         /// </summary>
-        public List<(int system, float size, float limit)> ClampedAt(float distance, float tanHalfFov)
+        public List<(int system, float size, float peak, float limit)> ClampedAt(float distance, float tanHalfFov)
         {
-            var clamped = new List<(int, float, float)>();
+            var clamped = new List<(int, float, float, float)>();
             if (_originalMaxParticleSize == null)
                 return clamped;
             float screenHeight = 2f * Mathf.Max(0.01f, distance) * tanHalfFov;
             for (int p = 0; p < _allParticleSystems.Length; p++)
+            {
                 if (_maxParticleSize[p] / screenHeight > _originalMaxParticleSize[p])
-                    clamped.Add((p, _maxParticleSize[p], _originalMaxParticleSize[p]));
+                {
+                    var ps = _allParticleSystems[p];
+                    float peak = Mathf.Max(_maxParticleSize[p], PeakSize(ps) * MaxScale(ps.transform));
+                    clamped.Add((p, _maxParticleSize[p], peak, _originalMaxParticleSize[p]));
+                }
+            }
             return clamped;
+        }
+
+        /// <summary>
+        /// Largest size the system's settings allow: start size maximum x size-over-lifetime maximum
+        /// (key values; curves between keys are assumed not to overshoot). Sampled frames can miss it
+        /// when the peak lasts less than a frame, e.g. a spike right after birth.
+        /// </summary>
+        static float PeakSize(ParticleSystem ps)
+        {
+            var main = ps.main;
+            float start = main.startSize3D
+                ? Mathf.Max(MaxOf(main.startSizeX), Mathf.Max(MaxOf(main.startSizeY), MaxOf(main.startSizeZ)))
+                : MaxOf(main.startSize);
+            var sol = ps.sizeOverLifetime;
+            float overLife = !sol.enabled ? 1f
+                : sol.separateAxes ? Mathf.Max(MaxOf(sol.x), Mathf.Max(MaxOf(sol.y), MaxOf(sol.z)))
+                : MaxOf(sol.size);
+            return start * overLife;
+        }
+
+        static float MaxOf(ParticleSystem.MinMaxCurve c)
+        {
+            switch (c.mode)
+            {
+                case ParticleSystemCurveMode.Constant: return c.constant;
+                case ParticleSystemCurveMode.TwoConstants: return Mathf.Max(c.constantMin, c.constantMax);
+                case ParticleSystemCurveMode.Curve: return c.curveMultiplier * MaxKey(c.curve);
+                default: return c.curveMultiplier * Mathf.Max(MaxKey(c.curveMin), MaxKey(c.curveMax));
+            }
+        }
+
+        static float MaxKey(AnimationCurve curve)
+        {
+            float max = 0f;
+            if (curve == null) return max;
+            foreach (var k in curve.keys) max = Mathf.Max(max, k.value);
+            return max;
         }
 
         /// <summary>maxParticleSize used in captures: larger than any particle a capture can frame.</summary>
