@@ -13,7 +13,8 @@
       },
       "shape": {
         "shape_type": "sphere",
-        "radius": "big"
+        "radius": "big",
+        "angle_deg": 25
       },
       "sub_emitters": [
         {

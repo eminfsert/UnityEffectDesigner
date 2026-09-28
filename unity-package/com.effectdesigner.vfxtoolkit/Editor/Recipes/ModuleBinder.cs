@@ -82,6 +82,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     errors.Add($"{at}: unknown property. Did you mean: {string.Join(", ", Suggest(key, props.Values.Select(p => p.Name)))}?");
                     continue;
                 }
+                if (degrees && DegreeProperties.Contains(type.Name + "." + prop.Name))
+                {
+                    errors.Add($"{at}: '{prop.Name}' is already in degrees in Unity; write it without '_deg'.");
+                    continue;
+                }
                 if (!prop.CanWrite || prop.SetMethod == null || !prop.SetMethod.IsPublic)
                 {
                     errors.Add($"{at}: '{prop.Name}' is read-only.");
@@ -114,6 +119,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             }
             return setters;
         }
+
+        /// <summary>Module properties Unity already takes in degrees: '_deg' on them would shrink the value ~57x.</summary>
+        static readonly HashSet<string> DegreeProperties = new HashSet<string>
+        {
+            "ShapeModule.angle", "ShapeModule.arc", "ShapeModule.rotation",
+        };
 
         static object ToRadians(object value, string at)
         {

@@ -7,7 +7,7 @@ production. It describes **what** the effect is, not how it is built. Location:
 ```yaml
 id: ArcaneNova                 # PascalCase, used in every asset name
 title: "Arcane Nova impact"
-archetype: impact              # impact | aura | burst | buff | projectile | custom (see archetypes.md)
+archetype: impact              # impact | burst | pickup | aura | buff | projectile | custom (see archetypes.md)
 style: stylized_hand_painted   # stylized_hand_painted | anime_cel | moba_readable
 brief: >
   Purple-gold spell impact: brief inward pull, then a white flash, a broken ring
@@ -67,5 +67,11 @@ Rules:
   alive in its window (`systemParticleCounts`).
 - Keep 3–7 layers. More layers make a muddier effect, not a better one.
 - `palette` names are reused as `$name` in particle recipes.
-- Capture times are derived from the beats: 0, every beat, beat + 1–3 frames, and the end
-  of every window.
+- Capture times are derived from the beats: 0, every beat, beat + 2 frames (+0.034 s:
+  the impact must be at full size there), and the end of every window.
+- **White heroes.** A white core is right for the 1–3 frame flash; a white layer that
+  lasts longer reads as washed out (and the capture flags it). Make the core a warm or
+  cool off-white (`#FFF4D6`, not `#FFFFFF`), keep it small, and give a long-lived white
+  hero shape (a white star, a white ring) a saturated rim or companion so the palette
+  survives. Say in the layer's `look` when white is intended, so the Critic scores it
+  against the intent.

@@ -12,17 +12,32 @@ user's **MCP for Unity** server (CoplayDev/unity-mcp) plus the custom tools that
 
 ## 1. Session preflight (once per task)
 
+The Director runs this once. Subagents it starts can assume it passed and skip it.
+
 1. Find the MCP for Unity tools. Their names look like `mcp__<server>__manage_scene`;
-   the server name depends on the user's setup (often `UnityMCP`). If no such tools
-   exist, stop and tell the user to start Unity and connect MCP for Unity.
+   the server name depends on the user's setup (often `UnityMCP`). In Claude Code many MCP
+   tools are **deferred**: only their names are listed until loaded. Load what you need
+   with ToolSearch (e.g. `select:mcp__UnityMCP__manage_tools`, or a keyword search for
+   `vfx_capture`) before calling. If no MCP for Unity tools exist at all, stop and tell
+   the user to start Unity and connect MCP for Unity.
 2. Activate the VFX tool group, which is hidden by default:
    `manage_tools(action="activate", group="vfx")`.
-3. Check that the toolkit is installed: `vfx_capture_timeline` is listed as a tool,
-   or appears in the project's custom tools (resource `mcpforunity://custom-tools`).
-   If it is missing, ask the user to add the package:
-   `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit`
+3. Check that the toolkit is installed: `vfx_capture_timeline` is listed as a tool (maybe
+   deferred), or appears in the project's custom tools (resource
+   `mcpforunity://custom-tools`; that resource is not readable in every client, so a
+   failed read proves nothing). If still unsure, call `vfx_compile_report` through
+   `execute_custom_tool` with `{"paths": ["Packages/com.effectdesigner.vfxtoolkit/Shaders"]}`:
+   it is harmless and returns `toolkitVersion`. If the toolkit is missing, ask the user to
+   add the package in Package Manager (*Add package from git URL*):
+   `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
-4. Read the console once (`read_console`) so later errors are not confused with
+4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
+   needs **toolkit ≥ 0.4.0** (`colorStatsByBackground`, `systemColorStats`,
+   `view_framing`, off-scene `save_prefab`). A missing field means an older toolkit: tell
+   the user to update the package (Package Manager → the package → Update, or remove the
+   `com.effectdesigner.vfxtoolkit` entry from `Packages/packages-lock.json` so the git
+   dependency re-resolves), and work around the missing features until then.
+5. Read the console once (`read_console`) so later errors are not confused with
    pre-existing ones.
 
 ## 2. Calling toolkit tools
@@ -65,6 +80,11 @@ therefore log one line per entry, culture-invariant, all prefixed `[VFX Toolkit]
 | **See the effect over time** | **`vfx_capture_timeline`** (toolkit) |
 | Anything missing | Prototype with `execute_code` (C# method body); if used repeatedly, it belongs in the toolkit as a custom tool |
 
+`execute_code` limits seen in practice: `Object` is ambiguous (write `UnityEngine.Object`,
+and full type names whenever a name could clash), and
+`AssetDatabase.DeleteAsset` is blocked: delete assets with `manage_asset` (`delete`).
+Never use it to change game code, scenes or project settings outside the effect's folder.
+
 ## 4. `vfx_capture_timeline`
 
 Renders the effect in an isolated preview scene at the requested times, deterministic
@@ -80,9 +100,12 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `seed` | 1234 | Change it to check the effect is not relying on one lucky random roll |
 | `auto_frame` | true | Each view is re-framed on the pixels the effect actually covers over all times (centred, ~80% of the frame) |
 | `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
+| `view_framing` | none | A previous result's `viewFraming` (`[{view, lookAt, distance}]`): those views reuse that camera placement exactly and skip auto framing. Use it every round after the first so iterations line up |
+| `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time; turn off for quick looks |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it, and `"none"` renders with the pipeline defaults only (for before/after comparisons) |
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
+| `output_folder` | `Library/VFXToolkit/Captures` | Keep the default: Library is neither imported nor versioned. Reviews reference the absolute contact sheet path. If captures must sit next to the effect, use `Assets/VFX/<Id>/Design/captures~` (Unity ignores folders ending in `~`) and tell the user to add it to `.gitignore` if they do not want images in version control |
 
 **After every capture, open `contactSheet` with the Read tool and look at it.** Never
 judge an effect from the numbers alone. Use `systemParticleCounts` (alive particles per system per time) to confirm every layer
@@ -90,11 +113,16 @@ and sub-emitter is active when the spec says it should be, `particleCounts` for 
 `postProcessing` (tonemapping and bloom actually used; colors are only valid under the game's),
 `colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
 their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
-`viewFraming` (look-at point and distance per view) to repeat the same framing later,
+`colorStatsByBackground` (the same per background, first view: readability on light and
+ground colors), `systemColorStats` (the same for each system rendered alone: each layer's
+own hue and how its saturation changes over its life),
+`viewFraming` (look-at point and distance per view) to pass back as `view_framing`,
 (`colorStats.coverage` is a share of the *frame*, and auto framing depends on the sampled
 `times`, so coverage is only comparable between captures with the same times, or with a
 fixed `framing_radius`; hue, saturation and washedOut do not depend on framing),
-and `warnings` for anything that makes the frames unreliable.
+`warnings` for likely problems (washed out, low contrast on a background, silent
+sub-emitters, no game volume profile), `notes` for information that needs no action, and
+`toolkitVersion`.
 
 The effect is played frame by frame at 60 fps from a seeded restart, like the game plays
 it: t = 0 is the first frame, times are rounded to 1/60 s, sub-emitters fire.

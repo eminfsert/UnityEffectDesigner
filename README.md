@@ -29,6 +29,13 @@ Tasarım: [`docs/DESIGN.md`](docs/DESIGN.md)
    /plugin marketplace add eminfsert/UnityEffectDesigner@claude/trusting-ritchie-uze78h
    /plugin install vfx@unity-effect-designer
    ```
+   Terminalden (yalnız bu proje için):
+   ```
+   claude plugin marketplace add eminfsert/UnityEffectDesigner@claude/trusting-ritchie-uze78h --scope local
+   claude plugin install vfx@unity-effect-designer --scope local
+   ```
+   Açık bir oturumda yeniden başlatmadan yüklemek için `/reload-plugins`. Güncelleme:
+   `claude plugin marketplace update unity-effect-designer` ardından `claude plugin update vfx@unity-effect-designer`.
 3. MCP istemcisini yeniden bağla (yeni custom tool'ların görünmesi için).
 4. Oyunun VolumeProfile'ını seç → **Assets → Effect Designer → Use As Capture Volume Profile**
    (capture'lar oyunun renkleriyle alınsın diye).
@@ -58,15 +65,26 @@ oturumdur: seninle konuşur, ekibi yönetir. Her efektin tasarım dosyaları
 - [x] `VFXCore.hlsl` + `Stylized Unlit` partikül shader'ı, tarif içinde satır içi materyal
 - [x] `vfx-shaders` skill'i
 - [x] Capture: renk ölçümü (washedOut, doygunluk, ton), oyunun volume profile'ı ile render (proje ayarı)
-- [ ] Capture: sistem başına renk ölçümü (diğer katmanlar kapalıyken)
+- [x] Capture: sistem başına ve arka plan başına renk ölçümü, düşük kontrast uyarısı, `view_framing` ile aynı kadraj
 - [ ] `vfx_project_check`
 - [x] Ajanlar (architect, texture, shader, particle, critic) ve `/vfx:create`, `/vfx:iterate`, `/vfx:review`
 - [x] Doku üretici `vfxtex.py` (glow, halka, yıldız, streak, slash, noise, smoke flipbook, SVG)
-- [ ] Uçtan uca `/vfx:create` testi gerçek projede (requests/003)
+- [x] Uçtan uca `/vfx:create` testi gerçek projede (requests/003: CoinPickup 71 → 88, geçti)
 - [ ] VFX Graph şablon kütüphanesi
 
-Unity `.meta` dosyaları `tools/gen_unity_meta.py` ile üretilir; pakete yeni dosya
-eklerken çalıştırın.
+Unity `.meta` dosyaları `tools/gen_unity_meta.py unity-package/com.effectdesigner.vfxtoolkit`
+ile üretilir; pakete yeni dosya eklerken çalıştırın.
+
+## Sürümleme
+
+- Plugin (`plugins/unity-vfx-designer/.claude-plugin/plugin.json`) ve Unity paketi
+  (`unity-package/.../package.json`) ayrı sürümlenir.
+- Plugin dosyalarından (skill, ajan, script) biri değişen **her** commit plugin sürümünü
+  artırır: kurulu plugin sürüm adlı bir önbellekte durur, sürüm aynı kalırsa güncelleme
+  yeni içeriği almayabilir.
+- Paket sürümü `Editor/ToolkitInfo.cs` ile aynı tutulur (testler kontrol eder); her araç
+  sonucu `toolkitVersion` döndürür. Plugin'in istediği en düşük paket sürümü
+  `unity-adapter` skill'inde yazılıdır (şu an: plugin 0.4.1 → paket ≥ 0.4.0).
 
 Unity kurmadan çalışan testler: `tests/run.sh` (.NET 8 SDK gerekir). Paketi tüm derleme
 varyantlarında Unity referans DLL'lerine karşı derler ve tariflerin gerçek Unity modül

@@ -88,6 +88,13 @@ Additive `Stylized Unlit` sparks, particle colors `#FFC247`→`#FFF4D6`:
 - Additive layers disappear on bright backgrounds (light-background captures:
   faint cream streaks). If the game has daylight or sand scenes, pair them with an
   alpha-blended darker companion layer.
+- **These numbers are specific to that project and that shape.** A different mask size,
+  blend mode, overlap density or volume profile moves them. Use the table for a first
+  guess, then measure the layer's own `systemColorStats` and adjust.
+- **When a channel hits the ceiling, intensity stops controlling hue.** Once the dominant
+  channel clips, more intensity only raises the others, and the hue drifts toward
+  yellow/white. Set the hue with the particle color or the tint's hue at moderate
+  intensity (0–1 stops), and treat intensity as brightness only.
 
 ## Writing a new shader
 

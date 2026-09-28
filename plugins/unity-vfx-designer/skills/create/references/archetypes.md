@@ -13,7 +13,7 @@ presets: every layer still gets the brief's shapes, colors and timing.
 | embers | aftermath | 0.1–1.5 | slow, noise, fade |
 | dark companion | readability | same as shape | alpha-blended darker duplicate of the hero shape, slightly larger |
 
-## burst / pickup (reward, collect, small pop)
+## burst / pickup (reward, collect, small pop; archetype `burst` or `pickup`)
 flash (small) → radial sparkle stars (4–8, rotating) → ring pop (`pop` curve) → glints
 drifting up. Short: 0.4–0.8 s. Bright, saturated and friendly shapes.
 

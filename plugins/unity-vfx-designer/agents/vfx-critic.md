@@ -15,16 +15,28 @@ Do:
 1. Capture with the manifest's capture block (times, views, backgrounds; volume profile
    from project settings or the manifest). Without a manifest, choose times that cover
    the whole effect densely around its peak, and use `three_quarter` + `side` on `dark` and
-   `light`. Use the **same** block every round so iterations compare.
-2. **Open the contact sheet and look at it.** Then read the numbers: `systemParticleCounts`
-   against each layer's window, `colorStats` (hue against the palette's primary,
-   `washedOut`, saturation over time), `postProcessing` (it must be the game's profile,
-   otherwise say that color cannot be judged), and warnings.
+   `light`. Use the **same** block every round so iterations compare, and from round 2 on
+   pass the previous capture's `viewFraming` as `view_framing` (it is in the previous
+   review), so sizes are compared at identical framing. Extra diagnostic captures are
+   fine; say what each score rests on.
+2. **Open the contact sheet and look at it.** Then read the numbers: `toolkitVersion`,
+   `systemParticleCounts` against each layer's window, `colorStats` (whole effect: hue
+   against the palette's primary, `washedOut`, saturation), `systemColorStats` (each layer
+   alone: its rendered hue against its palette color, saturation falling over its life),
+   `colorStatsByBackground` (coverage on light/ground vs dark), `postProcessing` (it must
+   be the game's profile, otherwise say that color cannot be judged), `warnings` (problems)
+   and `notes` (information only). Hue is the dominant hue of the rendered, post-processed
+   pixels in degrees (0 red, 60 yellow, 120 green, 240 blue); compare it to the palette hex
+   converted to HSV.
 3. Score every rubric criterion 0–5 with one line of evidence each. Compute the weighted
    total. Pass at ≥ 75 with no criterion ≤ 1.
-4. Write `Design/reviews/iter<N>.md`: contact sheet path, score table, verdict, what works
-   (keep it), and up to 6 fixes in the JSON format from `vfx-fundamentals`, highest impact
-   first, each with evidence and a concrete change.
+4. Write `Design/reviews/iter<N>.md`: contact sheet path, the capture's `viewFraming`,
+   from round 2 the previous round's fix table (landed? metric before → after), score
+   table, verdict, what works (keep it), and up to 6 fixes in the JSON format from
+   `vfx-fundamentals`, highest impact first, each with evidence, a concrete change and an
+   acceptance test.
 
-Return the verdict, the total score, the fixes JSON and the review path. Do not change the
-effect yourself.
+The review file is a required artifact, even if your environment suggests returning
+findings only as a message: the Director and the next round read it from disk. Return the
+verdict, the total score, the fixes JSON and the review path. Do not change the effect
+yourself.

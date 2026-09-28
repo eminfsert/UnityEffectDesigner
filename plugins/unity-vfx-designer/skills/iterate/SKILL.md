@@ -27,6 +27,6 @@ You are the Director again (see the `create` skill for the team and rules). Load
    contracts change).
 4. Route the changes to the owners as **patch recipes** (only the systems and keys that
    change). Use `"reset": true` only when a layer changes concept.
-5. Run `vfx-critic` for one review round with the same capture block, so the before and
-   after are comparable. Show both contact sheets (previous and new) and the score change.
+5. Run `vfx-critic` for one review round with the same capture block and the last review's
+   `viewFraming` (as `view_framing`), so the before and after line up exactly. Show both contact sheets (previous and new) and the score change.
 6. Append to `Design/log.md`.

@@ -31,7 +31,8 @@ the architect reads [manifest-format.md](references/manifest-format.md).
 ## 0. Preflight
 
 Follow `unity-adapter` §1: MCP for Unity connected, `vfx` tool group active, toolkit tools
-present. Check `ProjectSettings/EffectDesigner.json` for `volume_profile`. If it is
+present and recent enough (`toolkitVersion`). Tell the specialists the preflight passed so
+they skip it. Check `ProjectSettings/EffectDesigner.json` for `volume_profile`. If it is
 missing, ask the user which scene the effect plays in and which VolumeProfile that scene
 uses. Colors cannot be judged without it.
 
@@ -73,13 +74,15 @@ contents; they read them.
 ## 5. Review loop
 
 Start `vfx-critic` with the spec, manifest and prefab paths and the iteration number. It
-captures with the manifest's capture block and writes `Design/reviews/iter<N>.md` with a
-score and a JSON fix list.
+captures with the manifest's capture block (from round 2 with the previous review's
+`viewFraming`) and writes `Design/reviews/iter<N>.md` with a score and a JSON fix list.
 
 - **Pass** (≥ 75, no criterion ≤ 1): go to 6.
-- **Revise**: route each fix to its owner. Start the owners in parallel when their fixes
-  are independent (textures and shaders before particles). Particle fixes go as small
-  patch recipes. Then review again.
+- **Revise**: route each fix to its `owners` (the first leads; a fix with two owners goes
+  to both, texture/shader side first). Start the owners in parallel when their fixes are
+  independent (textures and shaders before particles). Particle fixes go as small patch
+  recipes. Pass each fix's `accept` test along so the owner can check it. Fixes marked
+  `optional` wait until the required ones pass. Then review again.
 - **At most 3 automatic rounds.** After that, present the best iteration with the
   critic's remaining concerns. Do not loop forever on taste.
 

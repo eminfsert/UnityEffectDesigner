@@ -17,8 +17,8 @@ How to call it (direct tool vs `execute_custom_tool`) is in the `unity-adapter` 
 
 1. Write the recipe from the effect spec: one system per layer (flash, sparks, smoke...).
 2. Call it with `"dry_run": true` first when the recipe is large or new.
-3. Apply for real. Use `save_prefab` for a new effect, or `target` = the prefab path to
-   iterate on an existing one.
+3. Apply for real. Use `save_prefab` for a new effect (built off-scene, straight into the
+   prefab), or `target` = the prefab path to iterate on an existing one.
 4. Capture it with `vfx_capture_timeline` and look at the contact sheet.
 5. Iterate with **small patch recipes**: send only the systems and keys that change.
 
@@ -29,7 +29,8 @@ How to call it (direct tool vs `execute_custom_tool`) is in the `unity-adapter` 
 | `systems` | Required. Array of system definitions (below) |
 | `target` | Existing prefab (`Assets/...prefab`, edited in place) or scene object to update. Omit to create a new root |
 | `name` | Name of the new root when `target` is omitted |
-| `save_prefab` | Save the scene root as a prefab here (folders are created) |
+| `save_prefab` | With no `target`: build the new effect in an isolated preview scene and save it as a prefab here (folders are created); the open scene is not touched. With a scene `target`: also save that object as a prefab |
+| `overwrite` | Needed to replace an existing prefab at `save_prefab` with a new build. To change an existing prefab, prefer `target` = its path (a patch) |
 | `palette` | Named colors usable as `"$name"` anywhere a color is expected |
 | `dry_run` | Validate and report only |
 
@@ -44,6 +45,8 @@ How to call it (direct tool vs `execute_custom_tool`) is in the `unity-adapter` 
   the root's name (and has no `parent`) lives on the root itself.
 - `parent` is another system in the recipe. Sub-emitters should be children of the system
   that triggers them.
+- `order` sets the sibling index under the parent (0 = first). New systems are appended;
+  use it to keep the hierarchy in layer order.
 - Updates are **patches**: only keys you send change. `"reset": true` rebuilds the system
   from Unity defaults first. Use it when an iteration changes the system's concept, so
   stale settings from the last attempt don't linger.
@@ -88,17 +91,29 @@ Frequently used:
 | `1.5` | constant |
 | `[0.4, 0.8]` | random between two constants |
 | `[[0, 1], [0.7, 0.8], [1, 0]]` | curve keys `[time, value]` (smooth tangents added) |
+| `[[0, 0, 0, 8], [0.3, 1], [1, 0]]` | a key `[time, value, inTangent, outTangent]` keeps exactly those slopes |
 | `{"ease": "ease_out_expo", "from": 1, "to": 0}` | named curve over the particle's life |
 | `{"curve": [...], "multiplier": 2}` | curve scaled by a multiplier |
 | `{"curve_min": [...], "curve_max": [...]}` | random between two curves |
 
 Eases: `linear`, `ease_in_quad`, `ease_out_quad`, `ease_in_out_quad`, `ease_in_cubic`,
 `ease_out_cubic`, `ease_in_out_cubic`, `ease_in_expo`, `ease_out_expo`, `ease_in_back`,
-`ease_out_back`, plus VFX shapes `spike` (instant peak, fast decay: flashes), `pop`
-(overshoot to 1.2, settle, fade at the end) and `fade_in_out`.
+`ease_out_back`, plus VFX shapes `spike` (starts at 85%, peaks at 4% of life, fast decay:
+flashes, visible from the first frame), `pop` (shoots up to 1.2 by 15% of life, settles
+to 1, fades over the last 25%) and `fade_in_out`.
 
-**Angles:** Unity's API uses radians. Append `_deg` to any numeric or curve key to give
-degrees: `"start_rotation_deg": [0, 360]`, `"z_deg": [-90, 90]`.
+**Tangents.** Named eases are sampled with the ease's own slope as tangents, so they keep
+their character: `pop` leaves 0 steeply, `ease_out_expo` drops immediately. Plain
+`[time, value]` keys get clamped-auto tangents: smooth and never overshooting, but **flat
+at every local peak and at the ends**, so a hand-keyed "fast start" starts slowly. When
+the start speed matters, use an ease, or give that key explicit tangents
+(`[t, v, in, out]`, slope in value per unit of normalized lifetime: `[0, 0, 0, 8]` rises
+at 8/life). Keys can mix: only the 4-element keys keep their tangents.
+
+**Angles:** Unity's API uses radians for rotations. Append `_deg` to give degrees:
+`"start_rotation_deg": [0, 360]`, `"z_deg": [-90, 90]` (rotation over lifetime/by speed).
+Shape `angle`, `arc` and `rotation`, and system `rotation`, are **already in degrees**:
+write them plainly (`"angle": 25`); the tool rejects `_deg` on them.
 
 **Colors:** `"#FFC247"`, `"#FFC24780"` (with alpha), `"$accent"` (palette),
 `{"color": "#9B5CFF", "intensity": 2}` (HDR, stops of linear light: x4 here), `[r, g, b, a]`.
@@ -115,6 +130,11 @@ materials and use plain hex colors on particles.
 colors may also be `[[t, color], ...]` (max 8 color and 8 alpha keys) and
 `"mode": "fixed"` gives stepped, cel-style color changes; `{"gradient_min", "gradient_max"}`;
 `{"random_color": {gradient}}`.
+
+**Patching replaces whole values.** A color field, curve or `bursts` list sent in a patch
+replaces the previous one entirely: a gradient sent with only `colors` gets alphas of 1
+everywhere (the old fade-out is gone), a `bursts` list with one entry leaves one burst.
+Always resend the complete gradient (colors and alphas), curve or burst list.
 
 **Assets:** project paths, e.g. `"material": "Assets/VFX/ArcaneNova/Materials/M_Spark.mat"`.
 **Materials** can also be inline objects that create/patch the material asset in the same
@@ -157,6 +177,12 @@ without updating the shader. Stream names are Unity's `ParticleSystemVertexStrea
 - World-space simulation (`simulation_space: world`) for anything that should trail
   behind a moving emitter; local for effects glued to their transform.
 - `max_particles` caps bursts silently. Keep it above the largest burst.
+- **Bursts at the end of a non-looping system never fire.** Emission stops when
+  `main.duration` ends, and a burst in the last frame (at 60 fps) is lost: duration 0.1
+  with bursts at 0.08 and 0.095 emitted only the first. Make `duration` at least the last
+  burst time + 2 frames (+0.034 s). The tool warns.
+- A `pop`/`spike` hand-keyed with `[t, v]` pairs starts slowly (flat tangents, see
+  Tangents above).
 - The response's `errors` list (after validation passed) means some properties failed in
   Unity and the rest were applied. Read them before capturing.
 
@@ -165,8 +191,11 @@ without updating the shader. Stream names are Unity's `ParticleSystemVertexStrea
 - **Impact flash:** 1 particle, lifetime 0.1–0.2, `size_over_lifetime` `spike`, core color
   fading to the primary color, additive material with HDR intensity, `sorting_fudge`
   negative so it draws on top.
-- **Sparks:** burst 20–50, speed [6, 14], `limit_velocity_over_lifetime.dampen` 0.1–0.2 for
-  the "fast then hang" feel, stretch render mode, `gravity_modifier` 0.3–1, size ends at 0.
+- **Sparks:** burst 20–50, speed [6, 14], stretch render mode, `gravity_modifier` 0.3–1,
+  size ends at 0. For the "fast then hang" feel either
+  `limit_velocity_over_lifetime` (`limit` low, `dampen` 0.1–0.2: slows only what exceeds `limit`) or,
+  more predictable, `velocity_over_lifetime.speed_modifier`
+  `{"ease": "ease_out_expo", "from": 1, "to": 0.05}` (speed multiplier over life).
 - **Toon smoke puff:** 3–8 particles, flipbook 4x4, `color_over_lifetime` with
   `"mode": "fixed"` (2–3 flat tones), `start_rotation_deg` [0, 360], slow upward velocity,
   `pop` size curve.

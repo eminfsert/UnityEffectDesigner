@@ -13,8 +13,8 @@ user-invocable: false
   shape at full size **immediately** at t≈0 of the beat. No slow fade-in.
 - **Dissipation** (0.3–1.5 s): things slow down (ease-out, drag/dampen), shrink, erode and
   lose saturation. Leftovers (embers, smoke, sparks) keep the effect alive after the peak.
-- Speeds use **fast-then-hang** curves (`ease_out_expo`, limit velocity with dampen). Linear
-  motion reads as cheap.
+- Speeds use **fast-then-hang** curves (`velocity_over_lifetime.speed_modifier` with
+  `ease_out_expo`, or limit velocity with dampen). Linear motion reads as cheap.
 - Keep layer timings offset. If everything starts and ends together, the effect reads as
   one blob.
 
@@ -61,12 +61,31 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 | Spec fidelity | 20 | Every spec layer present and active in its time window (`systemParticleCounts`); archetype and beats recognisable on the contact sheet |
 | Timing and feel | 20 | Impact within the first 1–3 frames of its beat; clear anticipation/dissipation if specced; fast-then-hang motion; layers offset |
 | Shape and silhouette | 15 | Hero shape reads at thumbnail size; big/medium/small hierarchy; designed shapes rather than soft blobs |
-| Color | 15 | Dominant `colorStats.hue` within ±15° of the spec's primary hue; `washedOut` < 35% outside the core flash frame; saturation falls over life |
-| Readability | 15 | Visible on both dark and light backgrounds; not a single blob at peak |
-| Technical | 15 | No toolkit warnings or errors, no compile errors, sensible particle counts for the platform, no layer cut by the frame |
+| Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color, the whole effect's (`colorStats.hue`) within ±15° of the primary; `washedOut` < 35% outside the core flash frame; saturation falls over each layer's life (`systemColorStats`) |
+| Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); readable at thumbnail size; not a single blob at peak |
+| Technical | 15 | No toolkit `warnings` or errors (`notes` are information, not problems), no compile errors, sensible particle counts for the platform, no layer cut by the frame |
 
 Always capture with the game's volume profile. Color is only judged under the game's
-post-processing.
+post-processing: "rendered hue" is the hue of the captured pixels after tonemapping and
+bloom, which can differ from the material's tint (a saturated gold whose red channel hits
+the ceiling renders yellow). Capture every round with the previous round's `viewFraming`
+passed back as `view_framing`, so sizes are compared at identical framing.
+
+**Diagnostic captures are allowed.** When a verdict needs it, capture more times around a
+beat, a single view at a larger frame size, or `system_color_stats` over more times. Say
+in the review which captures a score rests on.
+
+## Fixing color by measurement
+
+- A hue off target because a channel clips (gold drifting to yellow, magenta to pink):
+  **lower the intensity or the clipped channel's neighbours' share**, do not add
+  intensity. Raising HDR intensity pushes more channels to the ceiling and moves the hue
+  further toward white.
+- Control a layer's hue with its **particle color / tint hue**, and its brightness with
+  intensity. Calibration numbers from earlier effects are a starting point only: the same
+  values render differently with another shape, size, blend mode or volume profile.
+- Every color fix states its **acceptance test** in the stats the next capture returns,
+  e.g. `systemColorStats.Sparks hue 35–50 and washedOut < 35% at 0.1–0.35 s`.
 
 ## Writing fixes
 
@@ -74,12 +93,22 @@ Every problem becomes a routable fix. Name the owner, the layer, what is wrong *
 evidence**, and a concrete change:
 
 ```json
-{ "owner": "particle-artist", "layer": "sparks", "priority": "high",
+{ "id": "F2", "owners": ["particle-artist"], "layer": "sparks", "priority": "high",
   "issue": "Sparks still 40 alive at 0.5s but invisible (size ~0): the layer looks dead while it is still active",
   "evidence": "systemParticleCounts.Sparks = [0,40,40,40,40,32,5]; contact sheet columns 0.35s-0.5s empty",
-  "change": "start_lifetime [0.3,0.55]; size_over_lifetime ease_out_quad from 1 to 0.2" }
+  "change": "start_lifetime [0.3,0.55]; size_over_lifetime ease_out_quad from 1 to 0.2",
+  "accept": "Sparks visible in the 0.35 s and 0.5 s columns; systemColorStats.Sparks coverage > 0 there" }
 ```
 
-Owners: `particle-artist`, `shader-artist`, `texture-artist`, `vfx-architect` (contracts,
-layer structure). Give at most 6 fixes per round, highest impact first. Do not fix things
-the spec did not ask for.
+- `owners`: one or more of `particle-artist`, `shader-artist`, `texture-artist`,
+  `vfx-architect` (contracts, layer structure). The first owner leads; list a second when
+  the change crosses (a new mask plus the system that uses it).
+- `accept`: what the next capture must show, in contact-sheet columns or returned stats.
+- `"optional": true` marks polish that should not block a pass; required fixes come first.
+
+Give at most 6 fixes per round, highest impact first. Do not fix things the spec did not
+ask for.
+
+From round 2 on, open the review with the **previous round's table**: each earlier fix,
+whether it landed, and its acceptance metric before → after. A fix that did not land is
+carried over (same id) before new ones are added.

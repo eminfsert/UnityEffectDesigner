@@ -32,6 +32,7 @@ static class Program
             "main.particle_count: unknown property. Did you mean: max_particles",
             "emision: unknown module. Did you mean: emission",
             "shape.radius:",
+            "shape.angle_deg: 'angle' is already in degrees",
             "sub_emitters[0].system: 'Missing' is not a system in this recipe",
             "'stretched' is not a valid ParticleSystemRenderMode",
             "Parent cycle between systems: B, C",
