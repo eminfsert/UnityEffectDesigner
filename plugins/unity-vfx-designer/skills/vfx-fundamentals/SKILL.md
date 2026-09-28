@@ -73,8 +73,9 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 
 Always capture with the game's volume profile. Color is only judged under the game's
 post-processing: "rendered hue" is the hue of the captured pixels after tonemapping and
-bloom, which can differ from the material's tint (a saturated gold whose red channel hits
-the ceiling renders yellow). Capture every round with the previous round's `viewFraming`
+bloom, which can differ from the material's tint (a bright saturated gold drifts toward
+yellow as tonemapping compresses its red channel). Captures render HDR from toolkit 0.5.4,
+like the game camera; color numbers from older captures are not comparable. Capture every round with the previous round's `viewFraming`
 passed back as `view_framing`, so sizes are compared at identical framing.
 
 **A layer alone and the composite differ.** Overlapping layers (a dark companion under
@@ -89,10 +90,10 @@ in the review which captures a score rests on.
 
 ## Fixing color by measurement
 
-- A hue off target because a channel clips (gold drifting to yellow, magenta to pink):
-  **lower the intensity or the clipped channel's neighbours' share**, do not add
-  intensity. Raising HDR intensity pushes more channels to the ceiling and moves the hue
-  further toward white.
+- A hue drifting toward white at high intensity (gold to yellow, magenta to pink):
+  **lower the intensity or the other channels' share**, do not add intensity. More
+  intensity lets tonemapping compress the dominant channel further and moves the hue
+  toward white.
 - Control a layer's hue with **one** carrier (normally the material tint; particle color
   white), and its brightness with intensity. A hue in both tint and particle color is
   applied twice and drifts toward red/orange.

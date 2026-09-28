@@ -72,6 +72,7 @@ static class Program
         failures += CheckFrameTimes();
         failures += CheckMeshShapes();
         failures += CheckGroundStats();
+        failures += CheckHdrReadback();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -300,6 +301,26 @@ static class Program
         Console.WriteLine(ok
             ? $"PASS ground stats: hue ignores ground-colored edges ({dome.hue:0}deg), contrast ink {inkStats.valueContrast:0.00} vs pale glow on light {glowStats.valueContrast:0.00}, identical backgrounds noted"
             : $"FAIL ground stats: dome hue {dome.hue}, ink contrast {inkStats.valueContrast}, glow contrast {glowStats.valueContrast}, warnings {same.warnings.Count}, notes {same.notes.Count}");
+        return ok ? 0 : 1;
+    }
+
+    // HDR capture readback: linear (post-processed) values become 8-bit sRGB; above 1 clips only at the display step.
+    static int CheckHdrReadback()
+    {
+        var input = new[]
+        {
+            new UnityEngine.Color(0.21586f, 0.21586f, 0.21586f, 1f), // linear value of sRGB 128/255
+            new UnityEngine.Color(4f, 2f, 0.4f, 1f),                // HDR orange without tonemapping -> display clip
+            new UnityEngine.Color(float.NaN, -1f, 0f, 0.5f),
+        };
+        var output = new UnityEngine.Color32[input.Length];
+        EffectDesigner.VFXToolkit.Editor.Capture.CaptureRig.ToDisplay(input, output, true);
+        var gamma = new UnityEngine.Color32[1];
+        EffectDesigner.VFXToolkit.Editor.Capture.CaptureRig.ToDisplay(new[] { new UnityEngine.Color(0.5f, 0.5f, 0.5f, 1f) }, gamma, false);
+        bool ok = output[0].r == 128 && output[1].r == 255 && output[1].g == 255 && output[1].b == 170
+                  && output[2].r == 0 && output[2].g == 0 && output[2].a == 128 && gamma[0].r == 128;
+        Console.WriteLine(ok ? "PASS HDR readback: linear 0.2159 -> 128, HDR clips only at display, NaN/negative -> 0, gamma space unchanged"
+                             : $"FAIL HDR readback: {output[0]} {output[1]} {output[2]} gamma {gamma[0]}");
         return ok ? 0 : 1;
     }
 

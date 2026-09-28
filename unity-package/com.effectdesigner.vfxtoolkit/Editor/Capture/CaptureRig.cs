@@ -35,7 +35,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         readonly Scene _scene;
         readonly Camera _camera;
         readonly RenderTexture _target;
+        readonly Texture2D _hdrReadback;
         readonly Texture2D _readback;
+        Color32[] _pixels;
         readonly string _volumeProfilePath;
 
         public GameObject Effect { get; }
@@ -82,7 +84,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             ConfigurePipelineCamera(postProcessing);
             AddVolume();
 
-            _target = new RenderTexture(frameSize, frameSize, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
+            // HDR target: URP gives a camera with a targetTexture an intermediate color buffer in the
+            // target's format, so an 8-bit target clipped every channel at 1 before bloom and
+            // tonemapping (the game camera renders HDR). Half-float keeps the scene HDR; the frame is
+            // converted to 8-bit sRGB on readback, after post-processing, like a display would.
+            _target = new RenderTexture(frameSize, frameSize, 24, RenderTextureFormat.DefaultHDR, RenderTextureReadWrite.Linear)
             {
                 antiAliasing = 4,
                 hideFlags = HideFlags.DontSave,
@@ -90,6 +96,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             _target.Create();
             _camera.targetTexture = _target;
 
+            _hdrReadback = new Texture2D(frameSize, frameSize, TextureFormat.RGBAFloat, false, true)
+            {
+                hideFlags = HideFlags.DontSave,
+            };
             _readback = new Texture2D(frameSize, frameSize, TextureFormat.RGBA32, false, false)
             {
                 hideFlags = HideFlags.DontSave,
@@ -134,6 +144,27 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             EditorSceneManager.ClosePreviewScene(_scene);
             throw new ArgumentException("volume_profile needs URP.");
 #endif
+        }
+
+        /// <summary>
+        /// Linear frame (after post-processing) to 8-bit sRGB, as a display shows it: values above 1
+        /// (no tonemapping) clip there, after bloom and color grading had the full HDR range.
+        /// </summary>
+        internal static void ToDisplay(Color[] linear, Color32[] output, bool linearColorSpace)
+        {
+            for (int i = 0; i < linear.Length; i++)
+            {
+                var c = linear[i];
+                output[i] = new Color32(Encode(c.r, linearColorSpace), Encode(c.g, linearColorSpace), Encode(c.b, linearColorSpace), (byte)Mathf.Clamp(Mathf.RoundToInt(c.a * 255f), 0, 255));
+            }
+        }
+
+        static byte Encode(float value, bool linearColorSpace)
+        {
+            if (float.IsNaN(value)) value = 0f;
+            float v = Mathf.Clamp01(value);
+            if (linearColorSpace) v = Recipes.ColorSpaceMath.LinearToSrgb(v);
+            return (byte)Mathf.Clamp(Mathf.RoundToInt(v * 255f), 0, 255);
         }
 
         /// <summary>Tonemapping and bloom the capture camera rendered with (call after a Render).</summary>
@@ -232,7 +263,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
             var previous = RenderTexture.active;
             RenderTexture.active = _target;
-            _readback.ReadPixels(new Rect(0, 0, FrameSize, FrameSize), 0, 0, false);
+            _hdrReadback.ReadPixels(new Rect(0, 0, FrameSize, FrameSize), 0, 0, false);
+            _hdrReadback.Apply(false);
+            _pixels ??= new Color32[FrameSize * FrameSize];
+            ToDisplay(_hdrReadback.GetPixels(), _pixels, QualitySettings.activeColorSpace == ColorSpace.Linear);
+            _readback.SetPixels32(_pixels);
             _readback.Apply(false);
             RenderTexture.active = previous;
             return _readback;
@@ -249,6 +284,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
             if (_readback != null)
                 UnityEngine.Object.DestroyImmediate(_readback);
+            if (_hdrReadback != null)
+                UnityEngine.Object.DestroyImmediate(_hdrReadback);
             if (_ground != null)
             {
                 UnityEngine.Object.DestroyImmediate(_ground.GetComponent<MeshRenderer>().sharedMaterial);

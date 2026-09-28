@@ -32,7 +32,9 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.5.1** (`valueContrast`, the two-pass shell, `vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
+   needs **toolkit ≥ 0.5.4** (HDR captures like the game camera; before 0.5.4 captures
+   clipped HDR colors at 1 before post-processing, so their color numbers are not
+   comparable), `valueContrast`, the two-pass shell, `vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
    `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging, and
    correct `[HDR]` material colors: effects built with ≤ 0.4.2 have too-light tints and
    need their inline materials re-applied).

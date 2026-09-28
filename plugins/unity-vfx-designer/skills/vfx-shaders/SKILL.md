@@ -102,7 +102,8 @@ created, or patched if it exists:
 - **Glow with color, not with white.** The final color is tint × particle color × texture.
   A white HDR tint pushes every channel past 1, and tonemapping turns the palette white
   (and often yellow-green). This was measured on a gold effect: 83–100% of its bright pixels
-  lost their color. Use a **saturated tint in the layer's hue** (gold `#FFB030`, not
+  lost their color (measured in the 8-bit captures before 0.5.4, which clipped harder than the
+  game; the principle holds). Use a **saturated tint in the layer's hue** (gold `#FFB030`, not
   `#FFFFFF`) at **0.5–1.5 stops**, so one channel stays low. White belongs to a small
   core layer only. The capture's `colorStats.washedOut` and its "Washed out" warning
   catch this.
@@ -123,11 +124,12 @@ table.
   faint cream streaks). If the game has daylight or sand scenes, pair them with an
   alpha-blended darker companion layer, and check it alone (`systemColorStats`,
   `system_frames`): a dark companion must measure dark.
-- **When a channel hits the ceiling, intensity stops controlling hue.** Once the dominant
-  channel clips (tint × particle color × texture > 1 before tonemapping), more intensity
-  only raises the others, and the hue drifts toward yellow/white. Set the hue with the
-  tint's hue (particle color white) at moderate intensity (0–1 stops), and treat
-  intensity as brightness only.
+- **High intensity drifts toward white.** Tonemapping compresses the brightest channel
+  first, so as intensity rises the others catch up and the hue drifts toward yellow/white
+  (it does not hard-clip in the game: the scene renders HDR). Set the hue with the tint's
+  hue (particle color white) at moderate intensity (0–1 stops), and treat intensity as
+  brightness and bloom. Captures before toolkit 0.5.4 rendered in 8 bits and clipped every
+  channel at 1 *before* tonemapping, which exaggerated this: re-measure older numbers.
 - Tint and particle color multiply in linear light, so two mid-saturated colors multiply
   into a more saturated, darker one (`#FFB030` × `#FFB030` is deep orange). Keep one of
   them near white when the other carries the hue.
