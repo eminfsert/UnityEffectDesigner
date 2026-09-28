@@ -21,8 +21,8 @@ capture:
 runtime:                                           # how the game spawns it (from its code)
   spawner: Assets/Scripts/Fx.cs                    # where it is played
   pooled: true                                     # reused: must fully reset on Play
-  stop_action: disable                             # what the pool expects (none/disable/destroy/callback)
-  release_after: 1.5                               # seconds until the game returns it to the pool
+  stop_action: none                                # pooled effects: none (the pool deactivates it); destroy only for Instantiate-and-forget
+  release_after: 1.5                               # when the spawner releases it: the effect must be over by then
   scaling_mode: hierarchy                          # the game scales the root
   overrides: [start_color]                         # values the game sets at runtime (e.g. tint per team)
   attach: world                                    # world position, or parented to a moving object
@@ -63,10 +63,15 @@ materials:
 systems:                                            # one per spec layer (plus companions)
   - name: Ring
     layer: ring
-    render_mode: billboard                          # or horizontal_billboard / mesh / stretch
+    window: [0.25, 0.70]                            # from the spec: when this system is visible
+    render_mode: mesh                               # billboard / stretch / horizontal_billboard / mesh
+    mesh: SM_ArcaneNova_Ring                        # mesh particles only
+    alignment: local                                # mesh particles: local or world
+    sorting_fudge: 0                                # draw order among layers (lower = in front)
     material: M_ArcaneNova_Ring
-    vertex_streams: [Position, Color, UV, Custom1X]
-    custom_data: { custom1.x: "erosion 0 -> 1 over life (ease_in_quad)" }
+    vertex_streams: [Position, Normal, Color, UV, Custom1XY]
+    custom_data: { custom1.x: "ramp 0 -> 1 over life", custom1.y: "erosion 0 -> 1 from 60% of life" }
+    notes: "pops in 2 frames; strips open from 0.4 s"
   - name: Sparks
     layer: sparks
     render_mode: stretch
@@ -100,6 +105,13 @@ Rules:
   comparable. The camera placement is not stored here: the critic reuses the previous
   review's `viewFraming`. Add the game's ground color as a background when the effect
   plays over terrain.
+- `release_after` is checked against the effect's real length: for every system,
+  max start_delay + duration + max start_lifetime (curves: their maximum), the largest
+  over all systems. A start_delay or a curved lifetime is easy to miss.
+- Materials for the Stylized Shell list its ramp and rim properties
+  (`_RampColor0..3`, `_RampStops`, `_RampHard`, `_RimColor`, `_RimWidth`, `_BackTint`,
+  `_ErosionMap`) in `properties`; textures list their import (`mask` / `data` / `rgb`), which
+  decides sRGB and wrap (see `texture-authoring`).
 - `runtime` records what the game's code does with the effect (see `vfx-architect`); the
   Particle Artist sets `stop_action`, `scaling_mode` and looping to match it. Leave it out
   only when the effect has no spawner yet, and say so.

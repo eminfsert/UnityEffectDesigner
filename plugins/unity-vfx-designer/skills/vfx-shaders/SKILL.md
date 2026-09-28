@@ -51,7 +51,11 @@ the particle dissolves over its life.
 | `_BackTint` | Color | Multiplies back faces (the inside of a dome): dark and a little transparent reads as a hollow shell |
 | `_ErosionMap`, `_ErosionScroll` | Texture, Vector | Dissolve mask (R) on the mesh UVs; a `vfxtex stripes` mask breaks a dome into vertical strips |
 | `_Erosion`, `_Softness`, `_EdgeWidth`, `_EdgeColor` | | As in Stylized Unlit; per-particle erosion adds Custom1.y |
-| `_SrcBlend`, `_DstBlend`, `_ZWrite` | Enum | `blend` preset. The shader draws the inside (back faces) in a first pass and the outside in a second, so a translucent shell sorts itself; keep ZWrite off unless a layer must hide what is behind it |
+| `_SrcBlend`, `_DstBlend`, `_ZWrite` | Enum | `blend` preset. The shader draws the inside (back faces) in a first pass and the outside in a second, so a translucent shell sorts itself. Keep ZWrite off unless the shell must hide what is behind it; eroded-away pixels never write depth |
+
+Arc meshes have normals tilted toward both edges, so the rim traces the blade's outline
+seen face on; for a flat ink blade set `_RimWidth` 0 and `_BackTint` white (both sides the
+same).
 
 Vertex streams: `["Position", "Normal", "Color", "UV", "Custom1XY"]` (Normal is required
 for the rim), with custom data driving the look over life:
@@ -93,6 +97,7 @@ created, or patched if it exists:
 - **HDR belongs here.** Material colors keep their intensity. `intensity` is in stops of
   **linear light**, like Unity's HDR color picker: +1 doubles what the GPU sees, 2.5 → ×5.7.
   Particle colors are 8-bit and only carry hue and alpha variation.
+- **Textures with tiling or offset:** `"_NoiseMap": {"texture": "Assets/...png", "tiling": [2, 1], "offset": [0, 0.5]}`.
 - **Always give hex colors; the tool handles color spaces.** In a Linear project Unity
   linearizes plain Color properties itself but passes `[HDR]` Color properties to the GPU
   as stored, so the tool (≥ 0.4.3) writes the linear value into `[HDR]` properties. Do not
@@ -119,7 +124,8 @@ table.
 
 - **Judge color only under the game's volume profile.** In that project the scene's
   ColorAdjustments (saturation +25, contrast +5) raised saturation from ~0.52 to ~0.8 and
-  removed blue entirely. The same material looks different in and out of the game.
+  removed blue entirely: a saturated orange lost its blue channel and measured saturation
+  1.0. Predict with a capture, not from the hex. The same material looks different in and out of the game.
 - Additive layers disappear on bright backgrounds (light-background captures:
   faint cream streaks). If the game has daylight or sand scenes, pair them with an
   alpha-blended darker companion layer, and check it alone (`systemColorStats`,

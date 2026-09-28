@@ -17,7 +17,9 @@ Do:
 1. Read the spec. Check the render setup: distortion needs Opaque Texture, soft particles
    need Depth Texture, and **each quality level can use a different URP asset**. List the
    quality levels' pipeline assets and read those flags from each asset (the asset files
-   or `execute_code`; `manage_graphics` does not report them). Read
+   or `execute_code`; `manage_graphics` does not report them). Game cameras can override
+   them (`UniversalAdditionalCameraData.requiresDepthOption` / `requiresColorOption`):
+   check the gameplay camera too. Read
    `ProjectSettings/EffectDesigner.json` for the capture volume profile.
 2. **Find how the game plays effects.** Search the game code for where effects are
    spawned (e.g. an `Fx.cs`, `VfxManager`, `Instantiate(` of `ParticleSystem` prefabs, pool
@@ -43,7 +45,10 @@ Do:
 6. Derive the capture block from the beats and windows: t = 0, every beat, beat + 2 frames,
    the end of every window, and the effect end. Use views `three_quarter` and `side`, and the
    spec's backgrounds plus the game's ground color when the effect plays over terrain, and
-   `ground: <that color>` for effects that sit on the ground.
+   `ground: <that color>` for effects that sit on the ground. With a ground, views looking
+   down (three_quarter) show only ground, so every background renders the same there: the
+   `side` view (sky above the horizon) is where the light/dark backgrounds matter, and
+   readability against the ground is `valueContrast`.
 7. Check existing assets under `Assets/VFX/<Id>/` so you do not clobber work from a
    previous iteration.
 

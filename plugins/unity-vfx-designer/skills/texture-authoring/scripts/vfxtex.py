@@ -152,6 +152,11 @@ def star(a):
 
 
 def streak(a):
+    # Keep the width a power of two (e.g. --aspect 3 -> 4): odd sizes lose compression and mipmaps.
+    pow2 = 2 ** max(0, round(math.log2(max(a.aspect, 1e-3))))
+    if pow2 != a.aspect:
+        print(f"note: --aspect {a.aspect} rounded to {pow2} so the width stays a power of two", file=sys.stderr)
+        a.aspect = pow2
     x, y = grid(a.size, a.aspect)
     along = 1 - smoothstep(0.3, 1.0, np.abs(x))
     across = 1 - smoothstep(0.0, 0.9 * (1 - np.abs(x) ** 2) + 0.05, np.abs(y))
@@ -216,8 +221,9 @@ def shard(a):
     for i, pnt in enumerate(spine):
         w = a.inner * (0.5 + rng.random()) * math.sin(t[i] * math.pi) ** 0.5
         tooth = (i % 2 == 0)
-        left.append(pnt + perp * (w + (rng.random() * 0.35 if tooth else 0)))
-        right.append(pnt - perp * (w + (rng.random() * 0.35 if not tooth else 0)))
+        # Teeth reach well out from a thin spine, so the points stay sharp after downsampling.
+        left.append(pnt + perp * (w * (1.0 if tooth else 0.35) + (0.15 + rng.random() * 0.35 if tooth else 0)))
+        right.append(pnt - perp * (w * (1.0 if not tooth else 0.35) + (0.15 + rng.random() * 0.35 if not tooth else 0)))
     poly = left + right[::-1]
     poly = [((q[0] * 0.9 + 1) / 2 * big, (q[1] * 0.9 + 1) / 2 * big) for q in poly]
     im = Image.new("L", (big, big), 0)
@@ -269,7 +275,7 @@ def puff(a):
         # overlap near the outline, with soft ends.
         inside = smoothstep(0.4, 1.0, others)
         rc = np.sqrt(x * x + y * y)
-        ring_zone = smoothstep(0.12, 0.22, rc)
+        ring_zone = smoothstep(0.2, 0.3, rc)                  # keep the strokes off the puff's middle
         # One arc per lobe: the side of its edge facing the puff's centre.
         toward = -(np.arctan2(cy, cx))
         facing = np.cos(np.arctan2(y - cy, x - cx) + toward + math.pi)
@@ -281,17 +287,25 @@ def puff(a):
 
 
 def stripes(a):
-    """Erosion mask that breaks a shell into strips along u (repeat-wrapped): each band gets its
-    own random threshold, band borders erode first, and a little noise roughens the cuts."""
+    """Erosion mask that breaks a shell into strips along u (repeat-wrapped). Band borders are 0, so
+    gaps always open first; each strip's centre has its own level, so strips go one by one. With
+    --arch the gaps are wide at the bottom (v = 0, the dome's base) and close in a rounded top, like
+    arches standing on the ground. Use an odd --bands on a dome so front and back gaps do not line up."""
     size = a.size
     rng = np.random.default_rng(a.seed)
     u = (np.arange(size) + 0.5) / size
-    band = np.floor(u * a.bands).astype(int) % a.bands
-    frac = u * a.bands - np.floor(u * a.bands)
-    order = 0.35 + 0.65 * rng.random(a.bands)                 # when each strip goes
-    profile = np.sin(frac * math.pi) ** 0.35                   # 0 at borders -> gaps open first
-    col = order[band] * (0.45 + 0.55 * profile)
-    mask = np.tile(col[None, :], (size, 1))
+    v = 1 - (np.arange(size) + 0.5) / size                   # image row 0 is the texture's top (v = 1)
+    U, V = np.meshgrid(u, v)
+    band = np.floor(U * a.bands).astype(int) % a.bands
+    frac = U * a.bands - np.floor(U * a.bands)
+    order = 0.45 + 0.55 * rng.random(a.bands)                 # when each strip goes
+    # Plain strips: 0 at the borders, rising to the strip's own level in the middle.
+    straight = order[band] * np.sin(frac * math.pi) ** 0.35
+    # Arches: the mask is the distance from the bottom of each border, measured on an ellipse, so a
+    # rising erosion threshold opens a rounded arch that grows from the ground up and widens.
+    d = np.minimum(frac, 1 - frac) / 0.5                     # 0 at a border, 1 mid-strip
+    arches = np.sqrt((d * 1.0) ** 2 + (V * 0.85) ** 2) * (0.75 + 0.25 * order[band])
+    mask = (1 - a.arch) * straight + a.arch * np.clip(arches, 0, 1)
     n = value_noise(size, 4, 3, a.seed + 7)
     return np.clip(mask * (1 - a.noise) + n * a.noise * mask, 0, 1)
 
@@ -347,27 +361,37 @@ def preview(a):
     tint = np.array([int(a.tint.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4)], float) / 255
     dark = np.array([22, 22, 28], float) / 255
     light = np.array([200, 204, 210], float) / 255
+    ground = np.array([int(a.ground.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4)], float) / 255 if a.ground else None
     tile = a.tile
     columns = []
     for p in a.inputs:
         im = Image.open(p).convert("RGBA")
+        # Data textures (noise, stripes: the same gray in RGB and alpha) are shown as values. Decide on
+        # the original pixels: resizing an RGBA image premultiplies and changes RGB where alpha is low.
+        src = np.asarray(im).astype(float) / 255
+        data = src[..., 3].min() > 0.99 and np.allclose(src[..., 0], src[..., 1], atol=0.02) or np.allclose(src[..., :3], src[..., 3:4], atol=0.02)
         w, h = im.size
         im = im.resize((tile, max(1, round(tile * h / w))), Image.LANCZOS)
         arr = np.asarray(im).astype(float) / 255
         alpha = arr[..., 3:4]
         color = tint * arr[..., :3]
         rgb = arr[..., :3]
-        data = alpha.min() > 0.99 or np.allclose(rgb, alpha, atol=0.02)
         if data:
-            # Data texture (noise, stripes: grayscale in RGB and alpha): show the values, not a tinted shape.
-            gray = rgb.mean(-1, keepdims=True)
+            # Show the values, not a tinted shape. The resized alpha channel holds them unchanged
+            # (RGB was premultiplied by the resize); fully opaque data keeps its values in RGB.
+            gray = rgb.mean(-1, keepdims=True) if src[..., 3].min() > 0.99 else alpha
             alpha = np.ones_like(alpha)
             color = np.repeat(gray, 3, axis=2)
         rows = [color if data else np.repeat(alpha, 3, axis=2),
                 dark * (1 - alpha) + color * alpha,
                 light * (1 - alpha) + color * alpha]
+        if ground is not None:
+            rows.append(ground * (1 - alpha) + color * alpha)
         gap = np.ones((4, tile, 3)) * 0.5
-        columns.append(np.concatenate([rows[0], gap, rows[1], gap, rows[2]], axis=0))
+        parts = []
+        for r in rows:
+            parts += [r, gap]
+        columns.append(np.concatenate(parts[:-1], axis=0))
     height = max(c.shape[0] for c in columns)
     columns = [np.pad(c, ((0, height - c.shape[0]), (0, 4), (0, 0)), constant_values=0.5) for c in columns]
     sheet = np.concatenate(columns, axis=1)
@@ -447,13 +471,15 @@ def main(argv=None):
     sp.add_argument("--lobes", type=int, default=4); sp.add_argument("--strokes", type=int, default=2)
     sp.add_argument("--width", type=float, default=0.07); sp.add_argument("--softness", type=float, default=0.012)
     sp = sub.add_parser("stripes"); common(sp)
-    sp.add_argument("--bands", type=int, default=8); sp.add_argument("--noise", type=float, default=0.15)
+    sp.add_argument("--bands", type=int, default=7); sp.add_argument("--noise", type=float, default=0.15)
+    sp.add_argument("--arch", type=float, default=0.0, help="0..1: gaps wide at the bottom, rounded at the top (arches on the ground)")
     sp = sub.add_parser("svg"); common(sp)
     sp.add_argument("--svg", type=Path, required=True)
     sp = sub.add_parser("preview")
     sp.add_argument("out", type=Path); sp.add_argument("inputs", nargs="+", type=Path)
     sp.add_argument("--tint", default="FFB43C", help="hex color the masks are tinted with")
     sp.add_argument("--tile", type=int, default=256, help="tile width in pixels")
+    sp.add_argument("--ground", help="hex color of the game's ground: adds a fourth row tinted on it")
 
     a = p.parse_args(argv)
     if a.cmd == "preview":

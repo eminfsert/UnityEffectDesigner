@@ -133,7 +133,9 @@ alpha fade; color particles only for a deliberate hue shift, over a near-white t
 **Color fields** (MinMaxGradient): a color; `["#a", "#b"]` (random between two);
 `{"gradient": {"colors": ["$core", "$primary"], "alphas": [[0, 1], [1, 0]]}}`, where
 colors may also be `[[t, color], ...]` (max 8 color and 8 alpha keys) and
-`"mode": "fixed"` gives stepped, cel-style color changes; `{"gradient_min", "gradient_max"}`;
+`"mode": "fixed"` gives stepped, cel-style color changes (each color key marks the **end**
+of its band: `[[0.3, "#FFF4D6"], [0.6, "#F9D193"], [1, "#F29A4A"]]` is near-white until 0.3,
+peach until 0.6, orange to the end); `{"gradient_min", "gradient_max"}`;
 `{"random_color": {gradient}}`.
 
 **Patching replaces whole values.** A color field, curve or `bursts` list sent in a patch
@@ -162,8 +164,10 @@ Meshes come from `vfx_make_mesh` (see `unity-adapter`); `renderer.mesh` takes th
 
 - **`alignment: "local"`** (or `"world"`). The default aligns meshes to the view, which
   turns a dome toward the camera.
-- `vfx_make_mesh` shapes are 1 m across (radius 0.5), so `start_size` is the diameter in
-  meters. Use `start_size3d` with `start_size_x/y/z` to squash (a flatter dome: y < x).
+- `vfx_make_mesh` domes, spheres, rings and cylinders are 1 m across (radius 0.5), so
+  `start_size` is their diameter in meters. An **arc** is measured to the band's middle and
+  spans about 2 × radius × sin(arc/2) + width: `start_size` scales that, it is not a
+  diameter (the tool reports the mesh bounds; size from them). Use `start_size3d` with `start_size_x/y/z` to squash (a flatter dome: y < x).
 - Pivots: dome, sphere, ring and cylinder rest on y = 0, so a dome grows up from the ground;
   arc slashes pivot at their thickest point.
 - `start_rotation3d` + `start_rotation_x/y/z_deg` turns meshes (an arc stands vertical by
@@ -217,6 +221,17 @@ without updating the shader. Stream names are Unity's `ParticleSystemVertexStrea
   Tangents above).
 - The response's `errors` list (after validation passed) means some properties failed in
   Unity and the rest were applied. Read them before capturing.
+
+**Custom data patches** keep the axes you do not send (a patch with only `y` leaves `x`
+as it was). Send `"components": n` to change how many the shader receives.
+
+**Emitting from a dome's surface:** `shape` `hemisphere` with `radius` = the dome's radius
+and `radius_thickness` 0 emits from the shell (sparks and puffs breaking off it); rotate the
+shape so the hemisphere points up (`shape.rotation` [-90, 0, 0] if it faces sideways).
+
+**Posterized alpha on soft masks** (`_PosterizeSteps` 2 with a soft glow) cuts the glow to
+a hard disc covering a fraction of the quad and turns its fade into an on/off switch: small
+sparks vanish. Posterize shapes drawn for it (flat masks) or use ≥ 3 steps.
 
 ## Stylized patterns (starting points, tune after capturing)
 

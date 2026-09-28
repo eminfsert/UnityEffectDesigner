@@ -21,7 +21,7 @@ e.g. `vfx:vfx-architect`):
 | `vfx-architect` | `manifest.yaml`: names, folders, texture/material/shader list, vertex-stream contract, capture settings |
 | `texture-artist` | Every texture marked `make` in the manifest |
 | `shader-artist` | Custom shaders if the manifest needs any; material property contract checks |
-| `particle-artist` | Particle recipes: all systems, materials (inline), prefab |
+| `particle-artist` | Meshes (`vfx_make_mesh`), particle recipes: all systems, materials (inline), prefab |
 | `vfx-critic` | Captures and a scored review with routable fixes |
 
 Load the `unity-adapter` and `vfx-fundamentals` skills now, and `reference-analysis`

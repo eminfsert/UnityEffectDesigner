@@ -103,6 +103,25 @@ in the review which captures a score rests on.
   render differently with another shape, size, blend mode or volume profile.
 - Every color fix states its **acceptance test** in the stats the next capture returns,
   e.g. `systemColorStats.Sparks hue 35–50 and washedOut < 35% at 0.1–0.35 s`.
+- **When the spec has a color sequence** (white → yellow → peach → orange...), judge hue per
+  phase against that phase's palette color, not the whole effect against the primary.
+- **Hue needs pixels:** a hue measured on a sliver of a frame (a few embers, < ~2% of the
+  effect's colored pixels) is noise; the capture reports -1 there, and so should the review.
+
+## Acceptance tests that can be met
+
+- **Both bounds.** A lower bound alone pushes a value to an extreme: "valueContrast ≥ 0.5"
+  made smoke nearly opaque when the spec said translucent; "saturation falls" turned orange
+  puffs brown. Give a window tied to the spec (translucent smoke: coverage and contrast
+  within ranges; a color path: a hue and saturation window per phase).
+- **Feasible together.** Check that a fix's conditions can hold at once (coverage 55–80% and
+  mid ≥ 0.3 left almost no room); relax the one the spec cares least about.
+- **Only at captured times.** Every time in an acceptance test must be in the manifest's
+  capture block; add missing times to the block (and say so) rather than testing between
+  samples.
+- **Changes from the prefab, not the manifest.** "from" values in a change come from the
+  effect as built (the last applied recipe in `Design/recipes/`), which drifts from the
+  manifest's starting values.
 
 ## Writing fixes
 

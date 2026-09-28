@@ -48,9 +48,9 @@ C# fallback below instead of blocking.
 | `shard` | jagged debris / dark crack (crooked spine with sawtooth spikes) | `--spikes 7 --inner 0.12 --seed 3` |
 | `flame` | stylized flame tongues rising from a base | `--tongues 3 --width 0.16 --seed 1` |
 | `puff` | toon puff: round lobes, **dark inner strokes in RGB** (tint colors the puff, strokes stay dark) | `--lobes 4 --strokes 2 --seed 5` |
-| `stripes` | erosion mask (grayscale, repeat) that breaks a shell into strips along u: borders open first, each strip goes at its own time | `--bands 8 --noise 0.15 --seed 4` |
+| `stripes` | erosion mask (grayscale, repeat) that breaks a shell into strips along u: borders open first, each strip goes at its own time; `--arch 1` opens rounded arches from the ground up instead of straight slits | `--bands 7 --arch 1 --noise 0.15 --seed 4` (odd band counts keep a dome's front and back gaps from lining up) |
 | `svg` | rasterize an SVG you wrote | `--svg shape.svg` (needs `cairosvg`) |
-| `preview` | alpha row + tinted on dark + tinted on light | `preview out.png a.png b.png ... --tint 40C8FF` |
+| `preview` | alpha row + tinted on dark + tinted on light (+ on the game's ground with `--ground`); data textures (noise, stripes) are shown as gray values | `preview out.png a.png b.png ... --tint 40C8FF --ground 4E8A3A` |
 
 All shape commands take `--size`, `--seed`, and `--steps N` (posterize into N flat bands,
 2–4 for cel looks). Posterized textures are rendered at 4× and downsampled, so the band
