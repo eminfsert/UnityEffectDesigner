@@ -36,6 +36,13 @@ execute_custom_tool(tool_name="vfx_capture_timeline", parameters={...})
 
 Parameter names are snake_case exactly as documented below.
 
+**Stale schema after a package update.** MCP for Unity caches a custom tool's schema when
+the tool is first registered. After the toolkit package is updated, the direct tool can
+reject new parameters with `Unexpected keyword argument` until the MCP client reconnects.
+This does **not** mean the parameter is unsupported. Retry the same call through
+`execute_custom_tool`, which does not validate against the cached schema, and tell the user
+to reconnect the MCP client.
+
 ## 3. Which tool for which job
 
 | Job | Tool |

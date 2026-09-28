@@ -15,7 +15,8 @@ Package Manager → **Add package from git URL**:
 https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit
 ```
 
-After installing, reconnect your MCP client so it picks up the new tools.
+After installing or updating, reconnect your MCP client so it picks up new tools and
+parameters; until then, new parameters work through `execute_custom_tool`.
 
 ## Tools
 
@@ -25,8 +26,8 @@ Renders an effect at several points in time and writes a labelled contact sheet.
 how the agents *see* motion and timing.
 
 - Works in **edit mode**, inside an isolated preview scene: the open scene is not modified
-  and nothing else in it is rendered. The project's global Volumes (bloom, tonemapping)
-  still apply.
+  and nothing else in it is rendered. Its volumes do not apply either; see `volume_profile`
+  below for post-processing.
 - Plays the effect forward **frame by frame at 60 fps**, like the game does, so bursts at
   `t = 0` show in the first frame and sub-emitters fire. Times are rounded to 1/60 s;
   `t = 0` is the first frame.
