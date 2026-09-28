@@ -141,6 +141,17 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     material.SetVector(name, (Vector4)RecipeValues.Convert(value, typeof(Vector4), ctx, where));
                     break;
                 case ShaderPropertyType.Texture:
+                    // "path" | null | {"texture": "path" (optional), "tiling": [x, y], "offset": [x, y]}
+                    if (value is JObject tex)
+                    {
+                        if (tex["texture"] != null)
+                            material.SetTexture(name, tex["texture"].Type == JTokenType.Null ? null : (Texture)RecipeValues.Convert(tex["texture"], typeof(Texture), ctx, where + ".texture"));
+                        if (tex["tiling"] != null)
+                            material.SetTextureScale(name, (Vector2)RecipeValues.Convert(tex["tiling"], typeof(Vector2), ctx, where + ".tiling"));
+                        if (tex["offset"] != null)
+                            material.SetTextureOffset(name, (Vector2)RecipeValues.Convert(tex["offset"], typeof(Vector2), ctx, where + ".offset"));
+                        break;
+                    }
                     material.SetTexture(name, value.Type == JTokenType.Null ? null : (Texture)RecipeValues.Convert(value, typeof(Texture), ctx, where));
                     break;
             }

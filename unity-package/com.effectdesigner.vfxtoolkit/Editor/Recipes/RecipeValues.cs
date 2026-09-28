@@ -22,6 +22,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
         public readonly HashSet<string> SystemNames = new HashSet<string>(StringComparer.Ordinal);
         public readonly Dictionary<string, GameObject> Systems = new Dictionary<string, GameObject>(StringComparer.Ordinal);
         public readonly List<string> Warnings = new List<string>();
+        /// <summary>Materials defined inline anywhere in the recipe, by path: a path reference to one builds it first.</summary>
+        public readonly Dictionary<string, JObject> InlineMaterials = new Dictionary<string, JObject>(StringComparer.Ordinal);
 
         public GameObject System(string name)
         {
@@ -68,6 +70,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                 MaterialBuilder.Validate(materialRecipe, where);
                 return new Deferred(() => MaterialBuilder.Build(materialRecipe, ctx, where));
             }
+            // A path to a material defined inline elsewhere in this recipe: it may not exist yet, so build it
+            // from its definition (idempotent: building it twice sets the same values).
+            if (type == typeof(Material) && token.Type == JTokenType.String && ctx.InlineMaterials.TryGetValue(token.Value<string>(), out var inline))
+                return new Deferred(() => MaterialBuilder.Build(inline, ctx, where));
             if (typeof(UnityEngine.Object).IsAssignableFrom(type)) return ToObjectReference(token, type, ctx, where);
             throw new RecipeException($"{where}: properties of type {type.Name} are not supported by recipes.");
         }

@@ -20,6 +20,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public bool bloom;
         public float bloomThreshold;
         public float bloomIntensity;
+        /// <summary>Quality level whose pipeline asset rendered the capture (each level can use another asset).</summary>
+        public string qualityLevel;
+        public string pipelineAsset;
+        /// <summary>The asset's color grading mode: LDR grading clamps before grading; the game may differ per quality level.</summary>
+        public string colorGrading;
+        public bool pipelineHdr;
+        /// <summary>The capture itself renders HDR (from toolkit 0.5.4), whatever the asset says.</summary>
+        public bool captureHdr = true;
     }
 
     /// <summary>
@@ -163,15 +171,37 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         {
             if (float.IsNaN(value)) value = 0f;
             float v = Mathf.Clamp01(value);
-            if (linearColorSpace) v = Recipes.ColorSpaceMath.LinearToSrgb(v);
-            return (byte)Mathf.Clamp(Mathf.RoundToInt(v * 255f), 0, 255);
+            if (!linearColorSpace)
+                return (byte)Mathf.RoundToInt(v * 255f);
+            return SrgbLut[(int)(v * (LutSize - 1) + 0.5f)];
+        }
+
+        // Linear -> 8-bit sRGB by table: pow() per channel per pixel made captures ~3x slower.
+        // 16k steps keep every dark sRGB code reachable (the curve is steepest near 0).
+        const int LutSize = 16384;
+        static readonly byte[] SrgbLut = BuildSrgbLut();
+
+        static byte[] BuildSrgbLut()
+        {
+            var lut = new byte[LutSize];
+            for (int i = 0; i < LutSize; i++)
+                lut[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(Recipes.ColorSpaceMath.LinearToSrgb(i / (float)(LutSize - 1)) * 255f), 0, 255);
+            return lut;
         }
 
         /// <summary>Tonemapping and bloom the capture camera rendered with (call after a Render).</summary>
         public PostProcessInfo DescribePostProcessing()
         {
             var info = new PostProcessInfo { volumeProfile = _volumeProfilePath ?? "(pipeline defaults only: global + quality)", tonemapping = "unknown" };
+            int level = QualitySettings.GetQualityLevel();
+            info.qualityLevel = level >= 0 && level < QualitySettings.names.Length ? QualitySettings.names[level] : level.ToString();
 #if VFXTOOLKIT_URP
+            if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset)
+            {
+                info.pipelineAsset = AssetDatabase.GetAssetPath(asset);
+                info.colorGrading = asset.colorGradingMode.ToString();
+                info.pipelineHdr = asset.supportsHDR;
+            }
             // A camera with its own stack (volume updates "via scripting") does not use the shared one.
             var stack = _camera.GetUniversalAdditionalCameraData().volumeStack ?? VolumeManager.instance.stack;
             var tonemapping = stack?.GetComponent<Tonemapping>();

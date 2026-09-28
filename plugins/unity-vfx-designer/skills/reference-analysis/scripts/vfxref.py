@@ -330,7 +330,7 @@ def cmd_sheet(a):
         results.append(m)
         crop_path = out / f"ref_{i:02d}.png"
         crop.save(crop_path)
-        m["crop"] = str(crop_path)
+        m["crop"] = str(crop_path.resolve())
         crops.append(crop)
         px = arr[mask]
         if len(px):
@@ -382,6 +382,18 @@ def capture_frames(folder, view, background):
     return dict(sorted(found.items()))
 
 
+def resolve_crop(path, reference_json):
+    """Crops are stored absolute; older reference.json files stored them relative to where 'sheet'
+    ran, so fall back to the reference.json's folder."""
+    p = Path(path)
+    if p.is_absolute() and p.exists():
+        return p
+    for candidate in (reference_json.parent / p.name, reference_json.parent / p, Path.cwd() / p):
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def cmd_compare(a):
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -403,12 +415,17 @@ def cmd_compare(a):
         nearest = min(cap_times, key=lambda c: abs(c - t))
         im = Image.open(cap[nearest]).convert("RGB")
         arr = np.asarray(im).astype(float) / 255
-        if bg is None:
-            # Bottom corners: with a ground plane they are ground; top corners may be sky.
-            corner = np.concatenate([arr[-4:, :4].reshape(-1, 3), arr[-4:, -4:].reshape(-1, 3)]).mean(0)
-            use_bg = corner
-        else:
-            use_bg = bg
+        # Bottom corners: with a ground plane they are ground; top corners may be sky.
+        corner = np.concatenate([arr[-4:, :4].reshape(-1, 3), arr[-4:, -4:].reshape(-1, 3)]).mean(0)
+        use_bg = corner
+        if bg is not None:
+            if np.abs(np.array(bg) - corner).max() > 0.08:
+                msg = (f"--background {hexcode(bg)} is not what the capture rendered (corners {hexcode(corner)}: "
+                       "post-processing changes the ground's color); used the rendered color.")
+                if msg not in warnings:
+                    warnings.append(msg)
+            else:
+                use_bg = bg
         backgrounds_used.add(hexcode(use_bg))
         mask, hsv, _, darkened = effect_mask(arr, background_rgb=use_bg, auto=False)
         m = measure(arr, mask, hsv, darkened)
@@ -419,7 +436,10 @@ def cmd_compare(a):
         rows_out.append({"reference_time": r["time"], "capture_time": nearest, "reference": {k: r.get(k, 0) for k in ("white", "bright", "ink", "smoke", "mid", "bright_hue")},
                          "capture": {k: m[k] for k in ("white", "bright", "ink", "smoke", "mid", "bright_hue", "coverage")},
                          "difference": d, "bright_hue_difference": hue_diff})
-        cols_ref.append(Image.open(r["crop"]).convert("RGB") if Path(r["crop"]).exists() else None)
+        crop = resolve_crop(r["crop"], Path(a.reference))
+        if crop is None:
+            warnings.append(f"Reference crop for {r['time']} s not found ('{r['crop']}'); its column is empty.")
+        cols_ref.append(Image.open(crop).convert("RGB") if crop is not None else None)
         cols_cap.append(im)
         labels.append([f"ref {r['time']}  cap {nearest:.3f}", "ref " + fmt(r), "cap " + fmt(m),
                        f"dhue {hue_diff if hue_diff is not None else '-'}"])

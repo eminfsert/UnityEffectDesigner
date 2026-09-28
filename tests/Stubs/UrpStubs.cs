@@ -2,6 +2,13 @@
 namespace UnityEngine.Rendering.Universal
 {
     public enum AntialiasingMode { None, FastApproximateAntialiasing, SubpixelMorphologicalAntiAliasing, TemporalAntiAliasing }
+    public enum ColorGradingMode { LowDynamicRange, HighDynamicRange }
+    public class UniversalRenderPipelineAsset : UnityEngine.Rendering.RenderPipelineAsset
+    {
+        public bool supportsHDR { get; set; }
+        public ColorGradingMode colorGradingMode { get; set; }
+        protected override UnityEngine.Rendering.RenderPipeline CreatePipeline() => null;
+    }
     public class UniversalAdditionalCameraData : UnityEngine.MonoBehaviour
     {
         public bool renderPostProcessing { get; set; }

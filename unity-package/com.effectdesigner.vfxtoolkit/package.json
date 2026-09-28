@@ -1,6 +1,6 @@
 {
   "name": "com.effectdesigner.vfxtoolkit",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "displayName": "Effect Designer VFX Toolkit",
   "description": "VFX-specific editor tools for the Unity Effect Designer Claude Code plugin. Registers custom tools (timeline capture, recipe builders, compile reports) into MCP for Unity (CoplayDev/unity-mcp).",
   "unity": "6000.0",

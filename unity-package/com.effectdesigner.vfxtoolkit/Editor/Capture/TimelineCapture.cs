@@ -30,6 +30,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public string target;
         public string outputFolder;
         public string contactSheet;
+        /// <summary>The full result as JSON (every frame path, unrounded numbers); tools return a compact copy.</summary>
+        public string resultFile;
         /// <summary>Row labels of the contact sheet, top to bottom ("view/background").</summary>
         public List<string> rows = new List<string>();
         public float[] times;
@@ -332,6 +334,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     WarnAboutColor(result);
                     WarnAboutReadability(result);
 
+                    result.resultFile = Path.Combine(folder, "result.json");
+                    File.WriteAllText(result.resultFile, Newtonsoft.Json.JsonConvert.SerializeObject(result, Newtonsoft.Json.Formatting.Indented));
+
                     string sheetPath = Path.Combine(folder, "contact_sheet.png");
                     File.WriteAllBytes(sheetPath, sheet.EncodePng());
                     result.contactSheet = sheetPath;
@@ -378,6 +383,32 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             request.Times = kept.ToArray();
             return "Times are played at 60 fps (t = 0 is the first frame, each 1/60 s adds one); these fell on an already captured frame and were skipped: " +
                    string.Join(", ", merged) + ". Space beat samples at least 0.017 s apart.";
+        }
+
+        /// <summary>
+        /// The result without per-frame paths and with numbers rounded to 3 decimals: large captures
+        /// (many times, systems and backgrounds) otherwise exceed what MCP clients show. The full
+        /// result is in <see cref="TimelineCaptureResult.resultFile"/>.
+        /// </summary>
+        public static Newtonsoft.Json.Linq.JObject Compact(TimelineCaptureResult result)
+        {
+            var json = Newtonsoft.Json.Linq.JObject.FromObject(result);
+            json.Remove("frames");
+            Round(json);
+            return json;
+        }
+
+        static void Round(Newtonsoft.Json.Linq.JToken token)
+        {
+            foreach (var child in token.Children().ToList())
+            {
+                if (child is Newtonsoft.Json.Linq.JValue v && v.Type == Newtonsoft.Json.Linq.JTokenType.Float)
+                    v.Value = Math.Round(System.Convert.ToDouble(v.Value, CultureInfo.InvariantCulture), 3);
+                else if (child is Newtonsoft.Json.Linq.JProperty p && p.Value is Newtonsoft.Json.Linq.JValue pv && pv.Type == Newtonsoft.Json.Linq.JTokenType.Float)
+                    pv.Value = Math.Round(System.Convert.ToDouble(pv.Value, CultureInfo.InvariantCulture), 3);
+                else
+                    Round(child);
+            }
         }
 
         const string ProjectSettingsSource = "project settings (ProjectSettings/EffectDesigner.json)";
@@ -465,7 +496,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 result.notes.Add("All backgrounds rendered the same in the first view (the ground fills the frame): readability is in valueContrast against the ground, not in background coverage ratios.");
                 return;
             }
-            var means = result.colorStatsByBackground.ToDictionary(e => e.Key, e => e.Value.Count > 0 ? e.Value.Average(s => s.coverage) : 0f);
+            // Readable coverage: pixels that differ from the background by value. A bloom halo spreads coverage on
+            // a dark background without being readable, so plain coverage would exaggerate the dark/light gap.
+            var means = result.colorStatsByBackground.ToDictionary(e => e.Key, e => e.Value.Count > 0 ? e.Value.Average(s => s.coverage * s.valueContrast) : 0f);
             var best = means.OrderByDescending(e => e.Value).First();
             if (best.Value <= 0f)
                 return;
@@ -473,8 +506,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             {
                 float ratio = entry.Value / best.Value;
                 if (ratio < ReadableCoverageRatio)
-                    result.warnings.Add($"Low contrast on '{entry.Key}': the effect changes {Pct(ratio)} as many pixels as on '{best.Key}' " +
-                                        $"(mean coverage {Pct(entry.Value, 1)} vs {Pct(best.Value, 1)}). Additive layers vanish on light backgrounds: " +
+                    result.warnings.Add($"Low contrast on '{entry.Key}': the effect clearly changes (by value) {Pct(ratio)} as many pixels as on '{best.Key}' " +
+                                        $"(mean readable coverage {Pct(entry.Value, 1)} vs {Pct(best.Value, 1)}). Additive layers vanish on light backgrounds: " +
                                         "add an alpha-blended or darker outline/shadow layer, or raise saturation.");
             }
         }

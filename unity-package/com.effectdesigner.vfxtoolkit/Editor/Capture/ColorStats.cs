@@ -44,11 +44,13 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         const float MinBrightShare = 0.0005f;
         const float HueSaturationMin = 0.25f;
         const float BackgroundHueWindow = 20f;
+        const int MinHuePixels = 20;
+        const float MinHueShare = 0.02f;
         const float ContrastLuma = 0.2f;
 
         public static FrameColorStats Measure(Color32[] frame, Color32[] background, float time)
         {
-            int effect = 0, bright = 0, colorless = 0, contrasted = 0;
+            int effect = 0, bright = 0, colorless = 0, contrasted = 0, hueSamples = 0;
             double saturationSum = 0, hueX = 0, hueY = 0;
 
             for (int i = 0; i < frame.Length; i++)
@@ -69,11 +71,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     if (s < ColorlessSaturation)
                         colorless++;
                 }
-                if (s >= HueSaturationMin && !HasBackgroundHue(h, b))
+                if (s >= HueSaturationMin)
                 {
+                    // Pixels close to the background's color (bloom halos, soft edges blended with the
+                    // ground) count less: they carry the background's hue as much as the effect's.
+                    float distance = Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Max(Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b))) / 255f;
+                    double weight = s * Mathf.Clamp01((distance - 0.06f) / 0.25f);
                     double angle = h * 2.0 * System.Math.PI;
-                    hueX += System.Math.Cos(angle) * s;
-                    hueY += System.Math.Sin(angle) * s;
+                    if (!IsBackgroundShowingThrough(h, s, b))
+                    {
+                        hueSamples++;
+                        hueX += System.Math.Cos(angle) * weight;
+                        hueY += System.Math.Sin(angle) * weight;
+                    }
                 }
             }
 
@@ -85,7 +95,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 stats.washedOut = colorless / (float)bright;
             stats.saturation = (float)(saturationSum / effect);
             stats.valueContrast = contrasted / (float)effect;
-            if (hueX != 0 || hueY != 0)
+            // A hue from a handful of pixels (a few embers, soft edges) says nothing about the layer's color.
+            if ((hueX != 0 || hueY != 0) && hueSamples >= Mathf.Max(MinHuePixels, MinHueShare * effect))
             {
                 double degrees = System.Math.Atan2(hueY, hueX) * 180.0 / System.Math.PI;
                 stats.hue = (float)((degrees + 360.0) % 360.0);
@@ -95,11 +106,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
         static float Luma(Color32 c) => (0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b) / 255f;
 
-        /// <summary>A saturated background (grass, sky) and a pixel of nearly the same hue: background showing through.</summary>
-        static bool HasBackgroundHue(float hue01, Color32 background)
+        /// <summary>
+        /// A pixel in a saturated background's hue (grass, sky, sand) that is not more saturated than the
+        /// background: the background blended with the effect's edges, a halo or a white core. A pixel of
+        /// that hue but clearly more saturated is the effect's own color (gold on sand) and counts.
+        /// </summary>
+        static bool IsBackgroundShowingThrough(float hue01, float saturation, Color32 background)
         {
             Color.RGBToHSV(background, out float bh, out float bs, out _);
-            if (bs < 0.2f)
+            if (bs < 0.2f || saturation > bs + 0.15f)
                 return false;
             float d = Mathf.Abs(hue01 - bh) * 360f;
             return Mathf.Min(d, 360f - d) < BackgroundHueWindow;

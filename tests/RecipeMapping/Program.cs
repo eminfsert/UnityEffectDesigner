@@ -63,6 +63,18 @@ static class Program
             failures++;
         }
 
+        // Raw errors, natives included: a path reference that reached AssetDatabase (the old behaviour) fails offline.
+        var inlineRecipe = JObject.Parse(File.ReadAllText(Path.Combine(dir, "inline_ref_recipe.json")));
+        ParticleRecipeBuilder.Apply(inlineRecipe, out var inlineErrors);
+        var inlineRef = inlineErrors.ToArray();
+        if (inlineRef.Length > 0)
+        {
+            Console.WriteLine("FAIL inline_ref_recipe.json: a path reference to a material defined inline later in the recipe should validate:");
+            foreach (var e in inlineRef) Console.WriteLine("   " + e);
+            failures++;
+        }
+        else Console.WriteLine("PASS inline material referenced by path before its definition validates");
+
         failures += CheckColorStats();
         failures += CheckHdrIntensity();
         failures += CheckCaptureLogCulture();
@@ -73,6 +85,7 @@ static class Program
         failures += CheckMeshShapes();
         failures += CheckGroundStats();
         failures += CheckHdrReadback();
+        failures += CheckCompactResult();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -166,9 +179,9 @@ static class Program
         {
             var r = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult();
             r.colorStatsByBackground["dark"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats>
-                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.10f }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.06f } };
+                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.10f, valueContrast = 1f }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.06f, valueContrast = 1f } };
             r.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats>
-                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light } };
+                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light, valueContrast = 1f }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light, valueContrast = 1f } };
             EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(r);
             return r;
         }
@@ -296,11 +309,22 @@ static class Program
         same.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.301f } };
         EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(same);
 
+        // Gold on sand: the effect's hue is the background's; it must still be measured.
+        var sand = new UnityEngine.Color32(230, 210, 164, 255);
+        var gold = Fill(sand); for (int i = 0; i < 800; i++) gold[i] = new UnityEngine.Color32(255, 196, 64, 255);
+        var goldStats = EffectDesigner.VFXToolkit.Editor.Capture.ColorStats.Measure(gold, Fill(sand), 0f);
+        // A bloom halo on dark: large coverage, little value contrast; the ratio must not flag light.
+        var halo = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult();
+        halo.colorStatsByBackground["dark"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.20f, valueContrast = 0.25f } };
+        halo.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.05f, valueContrast = 0.9f } };
+        EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(halo);
+
         bool ok = dome.hue > 20f && dome.hue < 45f && inkStats.valueContrast > 0.95f && glowStats.valueContrast < 0.05f
+                  && goldStats.hue > 35f && goldStats.hue < 48f && halo.warnings.Count == 0
                   && same.warnings.Count == 0 && same.notes.Count == 1;
         Console.WriteLine(ok
-            ? $"PASS ground stats: hue ignores ground-colored edges ({dome.hue:0}deg), contrast ink {inkStats.valueContrast:0.00} vs pale glow on light {glowStats.valueContrast:0.00}, identical backgrounds noted"
-            : $"FAIL ground stats: dome hue {dome.hue}, ink contrast {inkStats.valueContrast}, glow contrast {glowStats.valueContrast}, warnings {same.warnings.Count}, notes {same.notes.Count}");
+            ? $"PASS ground stats: hue ignores ground-colored edges ({dome.hue:0}deg), gold on sand keeps its hue ({goldStats.hue:0}deg), a bloom halo is not a readability gap, contrast ink {inkStats.valueContrast:0.00} vs pale glow on light {glowStats.valueContrast:0.00}, identical backgrounds noted"
+            : $"FAIL ground stats: dome hue {dome.hue}, gold on sand hue {goldStats.hue}, halo warnings {halo.warnings.Count}, ink contrast {inkStats.valueContrast}, glow contrast {glowStats.valueContrast}, warnings {same.warnings.Count}, notes {same.notes.Count}");
         return ok ? 0 : 1;
     }
 
@@ -321,6 +345,20 @@ static class Program
                   && output[2].r == 0 && output[2].g == 0 && output[2].a == 128 && gamma[0].r == 128;
         Console.WriteLine(ok ? "PASS HDR readback: linear 0.2159 -> 128, HDR clips only at display, NaN/negative -> 0, gamma space unchanged"
                              : $"FAIL HDR readback: {output[0]} {output[1]} {output[2]} gamma {gamma[0]}");
+        return ok ? 0 : 1;
+    }
+
+    // Compact capture result: no frame list, 3 decimals, everything else kept.
+    static int CheckCompactResult()
+    {
+        var r = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult { times = new[] { 0f, 0.0166667f }, contactSheet = "sheet.png" };
+        r.frames.Add(new EffectDesigner.VFXToolkit.Editor.Capture.CapturedFrame { time = 0f, path = "a.png" });
+        r.colorStats.Add(new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { time = 0.0166667f, coverage = 0.123456f, hue = 41.98765f });
+        r.systemColorStats["Dome"] = r.colorStats;
+        var c = EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.Compact(r);
+        bool ok = c["frames"] == null && (double)c["times"][1] == 0.017 && (double)c["colorStats"][0]["coverage"] == 0.123
+                  && (double)c["systemColorStats"]["Dome"][0]["hue"] == 41.988 && (string)c["contactSheet"] == "sheet.png";
+        Console.WriteLine(ok ? "PASS compact capture result: frames dropped, numbers rounded, the rest kept" : "FAIL compact capture result: " + c.ToString(Newtonsoft.Json.Formatting.None));
         return ok ? 0 : 1;
     }
 

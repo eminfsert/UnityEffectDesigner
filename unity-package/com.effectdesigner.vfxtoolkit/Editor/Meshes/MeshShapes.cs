@@ -47,7 +47,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Meshes
                 case "sphere": return "Full sphere centred at y = radius (resting on y = 0), normals outward. u = around, v = 0 at the bottom to 1 at the top.";
                 case "ring": return "Flat annulus on the XZ plane (y = 0), normals up. u = around, v = 0 at the inner edge to 1 at the outer edge.";
                 case "cylinder": return "Open tube from y = 0 to y = height (a cone or funnel when top_radius differs), normals outward. u = around, v = 0 at the bottom to 1 at the top.";
-                case "arc": return "Flat band along a circular arc in the XY plane (vertical, facing -Z), centred on the arc's midpoint at the origin, thickest in the middle and tapering to the tips. u = 0..1 along the arc, v = 0 inner to 1 outer edge.";
+                case "arc": return "Flat band along a circular arc in the XY plane (vertical, facing -Z), thickest in the middle and tapering to the tips, pivot at the band's middle point (the arc's centre is 'radius' below it). u = 0..1 along the arc, v = 0 inner to 1 outer edge. Normals tilt outward toward both edges (75 degrees), so a shader rim traces the blade's edges seen face on. The mesh spans about 2 x radius x sin(arc/2) + width across: particle start_size scales that, not a diameter.";
                 default: return null;
             }
         }
@@ -138,6 +138,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Meshes
             return m;
         }
 
+        static readonly float EdgeCos = Mathf.Cos(75f * Mathf.Deg2Rad);
+        static readonly float EdgeSin = Mathf.Sin(75f * Mathf.Deg2Rad);
+
         /// <summary>Band along an arc, thickest in the middle; <paramref name="taper"/> 1 = pointed tips, 0 = constant width.</summary>
         public static MeshData Arc(float radius, float arcDegrees, float width, float taper, int segments)
         {
@@ -151,8 +154,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Meshes
                 var dir = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f);
                 // Centred on the arc's midpoint so the mesh pivots where the slash is thickest.
                 var offset = new Vector3(0f, -radius, 0f);
-                m.Add(dir * (radius - w * 0.5f) + offset, Vector3.back, new Vector2(u, 0f));
-                m.Add(dir * (radius + w * 0.5f) + offset, Vector3.back, new Vector2(u, 1f));
+                // Edge normals tilt away from the band's middle line (like a rounded blade), so rims read face on.
+                var inner = (Vector3.back * EdgeCos - dir * EdgeSin).normalized;
+                var outer = (Vector3.back * EdgeCos + dir * EdgeSin).normalized;
+                m.Add(dir * (radius - w * 0.5f) + offset, inner, new Vector2(u, 0f));
+                m.Add(dir * (radius + w * 0.5f) + offset, outer, new Vector2(u, 1f));
             }
             for (int s = 0; s < segments; s++)
             {

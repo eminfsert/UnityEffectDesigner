@@ -62,6 +62,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("With system_color_stats: also save each system-alone render as a PNG (systemFrames), to compare a layer alone with the composite frame. Default false.", Required = false)]
             public bool? system_frames { get; set; }
 
+            [ToolParameter("\"compact\" (default): no per-frame paths, numbers rounded to 3 decimals, so large captures fit the response; \"full\": everything. The full result is always written to resultFile (result.json in the output folder).", Required = false)]
+            public string detail { get; set; }
+
             [ToolParameter("Vertical field of view in degrees. Default 35.", Required = false)]
             public float? fov { get; set; }
 
@@ -91,9 +94,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             if (result == null)
                 return new ErrorResponse(error, new { toolkitVersion = ToolkitInfo.Version });
 
+            bool full = string.Equals((string)@params["detail"], "full", System.StringComparison.OrdinalIgnoreCase);
             return new SuccessResponse(
-                $"Captured {result.frames.Count} frames of '{result.target}'. Contact sheet: {result.contactSheet}",
-                result);
+                $"Captured {result.frames.Count} frames of '{result.target}'. Contact sheet: {result.contactSheet}. Full result: {result.resultFile}",
+                full ? (object)result : TimelineCapture.Compact(result));
         }
     }
 }

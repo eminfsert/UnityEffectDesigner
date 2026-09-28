@@ -146,6 +146,8 @@ Shader "EffectDesigner/Particles/Stylized Shell"
                 color.a *= VFXErode(mask, input.custom.y, _Softness, _EdgeWidth, edge);
                 color.rgb = lerp(color.rgb, _EdgeColor.rgb * input.color.rgb, edge * step(0.0001, input.custom.y));
             }
+            // Eroded-away pixels write nothing, so a shell with ZWrite on does not hide what is behind its gaps.
+            clip(color.a - 0.001);
             return color;
         }
         ENDHLSL

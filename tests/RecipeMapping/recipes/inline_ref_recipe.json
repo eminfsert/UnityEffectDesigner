@@ -1,0 +1,12 @@
+{
+  "dry_run": true,
+  "systems": [
+    { "name": "Sparks", "main": { "loop": false, "duration": 1 },
+      "renderer": { "material": "Assets/VFX/Test/M_Shared.mat" } },
+    { "name": "Glow", "main": { "loop": false, "duration": 1 },
+      "custom_data": { "custom1": { "y": [[0, 0], [1, 1]] } },
+      "renderer": { "material": { "path": "Assets/VFX/Test/M_Shared.mat", "shader": "EffectDesigner/Particles/Stylized Unlit",
+                                  "blend": "additive",
+                                  "properties": { "_NoiseMap": { "texture": "Packages/com.effectdesigner.vfxtoolkit/Textures/T_VFX_Noise.png", "tiling": [2, 1], "offset": [0, 0.5] } } } } }
+  ]
+}

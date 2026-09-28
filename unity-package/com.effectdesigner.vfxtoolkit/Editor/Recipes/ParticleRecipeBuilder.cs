@@ -136,6 +136,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                 }
             }
 
+            // Inline materials, so other systems can reference them by path before they exist.
+            if (recipe["systems"] is JArray allSystems)
+            {
+                foreach (var material in allSystems.OfType<JObject>().SelectMany(sys => sys.DescendantsAndSelf()).OfType<JProperty>()
+                             .Where(p => (p.Name == "material" || p.Name == "trail_material") && p.Value is JObject m && m["path"] != null && m["shader"] != null)
+                             .Select(p => (JObject)p.Value))
+                {
+                    string path = material["path"].Value<string>();
+                    if (!string.IsNullOrEmpty(path) && !ctx.InlineMaterials.ContainsKey(path))
+                        ctx.InlineMaterials[path] = material;
+                }
+            }
+
             if (recipe["palette"] is JObject palette)
             {
                 foreach (var p in palette.Properties())
@@ -677,9 +690,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                         continue;
                     }
 
+                    // A patch that sends only some axes keeps the others: the count covers the highest axis
+                    // given and never drops below what the system already uses.
+                    int existing = customData.GetMode(stream) == ParticleSystemCustomDataMode.Vector ? customData.GetVectorComponentCount(stream) : 0;
                     customData.SetMode(stream, ParticleSystemCustomDataMode.Vector);
                     string[] axes = { "x", "y", "z", "w" };
-                    int count = json["components"]?.Value<int>() ?? axes.Count(a => json[a] != null);
+                    int highest = 0;
+                    for (int i = 0; i < axes.Length; i++)
+                        if (json[axes[i]] != null) highest = i + 1;
+                    int count = json["components"]?.Value<int>() ?? Math.Max(existing, highest);
                     customData.SetVectorComponentCount(stream, Mathf.Clamp(count, 1, 4));
                     for (int i = 0; i < axes.Length; i++)
                     {
