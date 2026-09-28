@@ -86,6 +86,7 @@ static class Program
         failures += CheckGroundStats();
         failures += CheckHdrReadback();
         failures += CheckCompactResult();
+        failures += CheckSpread();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -360,6 +361,33 @@ static class Program
                   && (double)c["systemColorStats"]["Dome"]["hue"][0] == 41.988 && (double)c["colorStats"]["time"][0] == 0.017
                   && (string)c["contactSheet"] == "sheet.png";
         Console.WriteLine(ok ? "PASS compact capture result: frames dropped, numbers rounded, color stats as columns, the rest kept" : "FAIL compact capture result: " + c.ToString(Newtonsoft.Json.Formatting.None));
+        return ok ? 0 : 1;
+    }
+
+    // Radial spread: a disc of radius 10 as reference; half the layer's pixels inside, half on a ring at 20 px.
+    static int CheckSpread()
+    {
+        const int size = 64;
+        var bg = Enumerable.Repeat(new UnityEngine.Color32(78, 138, 58, 255), size * size).ToArray();
+        var disc = (UnityEngine.Color32[])bg.Clone();
+        var layer = (UnityEngine.Color32[])bg.Clone();
+        var ink = new UnityEngine.Color32(10, 10, 10, 255);
+        int inside = 0, ring = 0;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = (float)Math.Sqrt((x - 32) * (x - 32) + (y - 32) * (y - 32));
+                if (d < 10) disc[y * size + x] = ink;
+                if (d < 6 && inside < 100) { layer[y * size + x] = ink; inside++; }
+                if (Math.Abs(d - 20) < 0.5f && ring < 100) { layer[y * size + x] = ink; ring++; }
+            }
+        var shape = EffectDesigner.VFXToolkit.Editor.Capture.SpreadStats.Shape(disc, bg, size);
+        var stat = EffectDesigner.VFXToolkit.Editor.Capture.SpreadStats.Measure(layer, bg, shape, 0.3f);
+        float share = inside / (float)(inside + ring);
+        bool ok = shape != null && Math.Abs(shape.CenterX - 32) < 0.6f && Math.Abs(shape.Radius - 10) < 0.6f
+                  && Math.Abs(stat.inside - share) < 0.01f && stat.max > 1.9f && stat.max < 2.15f && stat.p90 > 1.85f && stat.p50 < 2.1f;
+        Console.WriteLine(ok ? $"PASS spread: inside {stat.inside:0.00}, p90 {stat.p90:0.00}, max {stat.max:0.00} reference radii"
+                             : $"FAIL spread: shape {(shape == null ? "null" : $"{shape.CenterX},{shape.CenterY} r{shape.Radius}")}, inside {stat.inside} (want {share}), p50 {stat.p50} p90 {stat.p90} max {stat.max}");
         return ok ? 0 : 1;
     }
 

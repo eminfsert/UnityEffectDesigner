@@ -58,6 +58,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// Shows each layer's own hue and saturation over its life, without the other layers mixing in.
         /// </summary>
         public Dictionary<string, List<FrameColorStats>> systemColorStats = new Dictionary<string, List<FrameColorStats>>();
+        /// <summary>With spread_reference: per system and time, how far it reaches relative to that layer's silhouette.</summary>
+        public Dictionary<string, List<SpreadStat>> systemSpread = new Dictionary<string, List<SpreadStat>>();
+        public string spreadReference;
         /// <summary>With system_frames: the PNG of each system rendered alone per time (null where it had no particles).</summary>
         public Dictionary<string, List<string>> systemFrames = new Dictionary<string, List<string>>();
         /// <summary>Tonemapping and bloom in effect during the capture. Colors are only comparable to the game under the same settings.</summary>
@@ -240,10 +243,36 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     {
                         systemRenderers.Clear();
                     }
+                    // Spread: the reference system is measured first in each column, so the others compare to its
+                    // silhouette at the same time (or the last one it had, once it is gone).
+                    int spreadIndex = -1;
+                    if (!string.IsNullOrWhiteSpace(request.SpreadReference))
+                    {
+                        spreadIndex = labels.IndexOf(request.SpreadReference);
+                        if (spreadIndex < 0 || spreadIndex >= systemRenderers.Count || systemRenderers[spreadIndex] == null)
+                        {
+                            result.warnings.Add($"spread_reference '{request.SpreadReference}' is not a drawn system of this effect (systems: {string.Join(", ", labels)}); systemSpread was not measured.");
+                            spreadIndex = -1;
+                        }
+                        else
+                        {
+                            result.spreadReference = request.SpreadReference;
+                        }
+                    }
+                    var systemOrder = Enumerable.Range(0, systemRenderers.Count).ToList();
+                    if (spreadIndex >= 0)
+                    {
+                        systemOrder.Remove(spreadIndex);
+                        systemOrder.Insert(0, spreadIndex);
+                    }
+                    SpreadStats.Silhouette referenceShape = null;
+
                     for (int i = 0; i < systemRenderers.Count; i++)
                     {
                         if (systemRenderers[i] == null)
                             continue;
+                        if (spreadIndex >= 0 && i != spreadIndex)
+                            result.systemSpread[labels[i]] = new List<SpreadStat>();
                         result.systemColorStats[labels[i]] = new List<FrameColorStats>();
                         if (request.SystemFrames)
                             result.systemFrames[labels[i]] = new List<string>();
@@ -295,12 +324,13 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                         if (systemRenderers.Count > 0)
                         {
                             rig.Aim(framings[0].Center, framings[0].Distance, framings[0].DepthRadius, request.Views[0]);
-                            for (int i = 0; i < systemRenderers.Count; i++)
+                            foreach (int i in systemOrder)
                             {
                                 if (systemRenderers[i] == null)
                                     continue;
                                 FrameColorStats stats;
                                 string alonePath = null;
+                                Color32[] alonePixels = null;
                                 if (result.systemParticleCounts[labels[i]][column] == 0 && systemRenderers[i] is ParticleSystemRenderer)
                                 {
                                     stats = new FrameColorStats { time = t, hue = -1f };
@@ -310,7 +340,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                     Texture2D alone;
                                     using (sampler.Isolate(systemRenderers[i]))
                                         alone = rig.Render(request.Backgrounds[0].Color);
-                                    stats = ColorStats.Measure(alone.GetPixels32(), statsReferences[0], t);
+                                    alonePixels = alone.GetPixels32();
+                                    stats = ColorStats.Measure(alonePixels, statsReferences[0], t);
                                     if (request.SystemFrames)
                                     {
                                         alonePath = Path.Combine(folder, "systems", $"{Sanitize(labels[i])}_t{t.ToString("0.000", CultureInfo.InvariantCulture)}.png");
@@ -321,6 +352,21 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                 result.systemColorStats[labels[i]].Add(stats);
                                 if (request.SystemFrames)
                                     result.systemFrames[labels[i]].Add(alonePath);
+                                if (spreadIndex >= 0)
+                                {
+                                    if (i == spreadIndex)
+                                    {
+                                        var shape = alonePixels != null ? SpreadStats.Shape(alonePixels, statsReferences[0], rig.FrameSize) : null;
+                                        if (shape != null)
+                                            referenceShape = shape;
+                                    }
+                                    else
+                                    {
+                                        result.systemSpread[labels[i]].Add(alonePixels != null
+                                            ? SpreadStats.Measure(alonePixels, statsReferences[0], referenceShape, t)
+                                            : new SpreadStat { time = t });
+                                    }
+                                }
                             }
                         }
                     }
@@ -397,7 +443,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             Round(json);
             // Color stats as columns: {"time": [...], "coverage": [...], ...} instead of one object per time.
             json["colorStats"] = Columns((Newtonsoft.Json.Linq.JArray)json["colorStats"]);
-            foreach (var key in new[] { "colorStatsByBackground", "systemColorStats" })
+            foreach (var key in new[] { "colorStatsByBackground", "systemColorStats", "systemSpread" })
                 if (json[key] is Newtonsoft.Json.Linq.JObject group)
                     foreach (var entry in group.Properties().ToList())
                         entry.Value = Columns((Newtonsoft.Json.Linq.JArray)entry.Value);

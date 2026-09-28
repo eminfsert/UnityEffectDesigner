@@ -42,6 +42,8 @@ Do:
    place and timed with it.
 5. Fix the contracts: vertex streams and custom data per system, and the property contract
    for every shader.
+   When the spec says a layer reaches past another ("shrapnel beyond the smoke"), name that
+   reference layer and add `spread_reference` to the capture block.
 6. Derive the capture block from the beats and windows: t = 0, every beat, beat + 2 frames,
    the end of every window, and the effect end. Use views `three_quarter` and `side`, and the
    spec's backgrounds plus the game's ground color when the effect plays over terrain, and

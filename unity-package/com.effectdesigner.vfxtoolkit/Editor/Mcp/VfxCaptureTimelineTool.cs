@@ -59,6 +59,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Also render each system alone (first view, first background) and return its colors in systemColorStats. Default true; costs one extra render per system per time.", Required = false)]
             public bool? system_color_stats { get; set; }
 
+            [ToolParameter("With system_color_stats: a system label (e.g. \"Dome\") whose silhouette the other systems' reach is measured against, per time: systemSpread.<system> = share of its pixels inside that silhouette and the p50/p90/max distance from its centre in units of its radius (first view). Makes \"flies well past the dome\" testable.", Required = false)]
+            public string spread_reference { get; set; }
+
             [ToolParameter("With system_color_stats: also save each system-alone render as a PNG (systemFrames), to compare a layer alone with the composite frame. Default false.", Required = false)]
             public bool? system_frames { get; set; }
 

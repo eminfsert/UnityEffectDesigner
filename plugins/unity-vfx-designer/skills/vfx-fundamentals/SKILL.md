@@ -67,8 +67,8 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 | Spec fidelity | 20 | Every spec layer present and active in its time window (`systemParticleCounts`); archetype and beats recognisable on the contact sheet. **With references:** the `vfxref compare` sheet shows the same sequence (`curve_correlation` of bright and ink ≥ 0.7), each phase's bright hue within ±12°, and the silhouettes the spec's `follow` list names; 0–1 if the sequence is different |
 | Timing and feel | 20 | Impact within the first 1–3 frames of its beat; clear anticipation/dissipation if specced; fast-then-hang motion; layers offset |
 | Shape and silhouette | 15 | Hero shape reads at thumbnail size; big/medium/small hierarchy; designed shapes rather than soft blobs |
-| Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color at each phase (with a color sequence in the spec, per phase; otherwise the whole effect within ±15° of the primary); `washedOut` < 35% outside the core flash frame; saturation (`coreSaturation` for the fill itself) follows the spec over each layer's life |
-| Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); with a `ground`, `valueContrast` against it ≥ 0.5 at the impact and through the main body; readable at thumbnail size; not a single blob at peak |
+| Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color at each phase (with a color sequence in the spec, per phase; otherwise the whole effect within ±15° of the primary); `washedOut` < 35% outside the core flash frame; saturation (`coreSaturation` for the fill itself) follows the spec over each layer's life. **Translucent layers over a saturated ground** measure mostly the ground's hue: judge their hue in the `side` view against the sky or on a light background, not over grass |
+| Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); with a `ground`, `valueContrast` ≥ 0.5 at the impact and through the main body, measured on the **opaque layers** (`systemColorStats.<layer>.valueContrast`) when the spec asks for large translucent layers (they dilute the composite by design; judge them by their rims); readable at thumbnail size; not a single blob at peak |
 | Technical | 15 | No toolkit `warnings` or errors (`notes` are information, not problems), no compile errors, sensible particle counts for the platform, no layer cut by the frame |
 
 Always capture with the game's volume profile. Color is only judged under the game's
@@ -120,6 +120,10 @@ in the review which captures a score rests on.
   from an opaque rim, strokes or darker cores; write the test for those parts.
 - **Feasible together.** Check that a fix's conditions can hold at once (coverage 55–80% and
   mid ≥ 0.3 left almost no room); relax the one the spec cares least about.
+- **Reach against a named layer.** "Flies out past X" is tested with the capture's
+  `spread_reference: "<layer>"` (`systemSpread.<layer>`: share inside X's silhouette and
+  p50/p90/max distance in X's radii). Name the layer the spec means (the dome and the smoke
+  around it can differ by 2×), and write the window in those units.
 - **Only at captured times.** Every time in an acceptance test must be in the manifest's
   capture block; add missing times to the block (and say so) rather than testing between
   samples.

@@ -32,7 +32,7 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.5.8** (columnar compact results, `coreSaturation`, erosion 0 keeping the
+   needs **toolkit ≥ 0.5.9** (`spread_reference` / `systemSpread`, columnar compact results, `coreSaturation`, erosion 0 keeping the
    whole shape, compact results with `resultFile`, HDR captures like the game camera; before 0.5.4 captures
    clipped HDR colors at 1 before post-processing, so their color numbers are not
    comparable), `valueContrast`, the two-pass shell, `vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
@@ -118,6 +118,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time (~10% capture time for two systems); turn off for quick looks |
 | `ground` | none | A ground plane under the effect in the game's ground color (hex), at the pivot (`ground_height` shifts it). Use it for anything that sits on the ground (domes, ground rings, dust); it counts as background in the color stats, so readability is measured against the real ground |
 | `detail` | compact | The response drops per-frame paths, rounds numbers, and gives color stats as **columns** (`colorStats.hue[i]` is the hue at `colorStats.time[i]`; same for `colorStatsByBackground.<bg>` and `systemColorStats.<system>`); the full result (one object per time) is always in `resultFile` (`result.json` in the output folder). `"full"` returns everything |
+| `spread_reference` | none | A system label (e.g. `"Dome"`): the other systems' reach relative to its silhouette per time, in `systemSpread.<system>` (`inside` = share of pixels inside it, `p50`/`p90`/`max` = distance from its centre in its radii; first view). Needs `system_color_stats` |
 | `system_frames` | false | Also saves those system-alone renders as PNGs (`systemFrames`), to see why a layer alone and the composite measure differently |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it, and `"none"` renders with the pipeline defaults only (for before/after comparisons) |

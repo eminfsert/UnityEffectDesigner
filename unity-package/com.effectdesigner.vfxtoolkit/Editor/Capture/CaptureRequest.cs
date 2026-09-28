@@ -96,6 +96,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public float GroundHeight;
         /// <summary>Also save each system-alone render as a PNG (to compare a layer alone with the composite).</summary>
         public bool SystemFrames;
+        /// <summary>System label whose silhouette the other systems' reach is measured against (systemSpread).</summary>
+        public string SpreadReference;
         public string OutputFolder = "Library/VFXToolkit/Captures";
         public string Label;
 
@@ -189,6 +191,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
             if (json["ground_height"] != null)
                 request.GroundHeight = json["ground_height"].Value<float>();
+            request.SpreadReference = (string)json["spread_reference"];
             if (json["system_frames"] != null)
                 request.SystemFrames = json["system_frames"].Value<bool>();
             if (json["view_framing"] != null && !TryParseViewFraming(json["view_framing"], request.ViewFraming, out error))
