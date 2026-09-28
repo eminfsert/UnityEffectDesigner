@@ -64,6 +64,7 @@ static class Program
 
         failures += CheckColorStats();
         failures += CheckHdrIntensity();
+        failures += CheckCaptureLogCulture();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -102,6 +103,39 @@ static class Program
             ? $"PASS HDR intensity: +1 stop doubles linear light (#FFB030 @1 stored as {hdr.r:0.###}, {hdr.g:0.###}, {hdr.b:0.###})"
             : $"FAIL HDR intensity: linear ratios R {ratioR}, B {ratioB}, round trip {roundTrip}");
         return ok ? 0 : 1;
+    }
+
+    // Capture menu log lines must not depend on the editor's culture (a Turkish editor printed "0,95").
+    static int CheckCaptureLogCulture()
+    {
+        var result = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult
+        {
+            times = new[] { 0f, 0.35f },
+            colorStatsFor = "three_quarter/dark",
+            postProcessing = new EffectDesigner.VFXToolkit.Editor.Capture.PostProcessInfo
+            {
+                volumeProfile = "Assets/Settings/Profile.asset", volumeProfileSource = "volume_profile parameter",
+                tonemapping = "Neutral", bloom = true, bloomThreshold = 0.95f, bloomIntensity = 0.85f,
+            },
+        };
+        result.systemParticleCounts["Sparks"] = new System.Collections.Generic.List<int> { 0, 40 };
+        result.colorStats.Add(new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { time = 0.35f, coverage = 0.0321f, washedOut = 0.45f, saturation = 0.52f, hue = 41.1f });
+
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+            var lines = EffectDesigner.VFXToolkit.Editor.Capture.CaptureMenu.SummaryLines(result).ToList();
+            var numeric = lines.Where(l => l.StartsWith("Post-processing") || l.StartsWith("Color") || l.StartsWith("Times")).ToList();
+            bool ok = numeric.Count == 3 && numeric.All(l => !System.Text.RegularExpressions.Regex.IsMatch(l, @"\d,\d") && !l.Contains("%0") && !l.Contains("% "))
+                      && numeric.Any(l => l.Contains("threshold 0.95 intensity 0.85")) && numeric.Any(l => l.Contains("saturation 0.52") && l.Contains("washedOut 45%"));
+            Console.WriteLine(ok ? "PASS capture log lines are culture-invariant under tr-TR" : "FAIL capture log lines under tr-TR:\n   " + string.Join("\n   ", numeric));
+            return ok ? 0 : 1;
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = previous;
+        }
     }
 
     static string[] Run(string file)

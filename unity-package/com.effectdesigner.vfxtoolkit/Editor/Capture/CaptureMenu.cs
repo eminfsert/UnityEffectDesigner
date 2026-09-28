@@ -47,8 +47,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// first lines of a multi-line entry (the rest lands in the stack trace), and a Turkish or
         /// German editor would otherwise print "0,95" and "%0".
         /// </summary>
-        static IEnumerable<string> SummaryLines(TimelineCaptureResult result)
+        internal static IEnumerable<string> SummaryLines(TimelineCaptureResult result)
         {
+            // Every interpolation with a number goes through Inv: a nested $"..." is formatted with the
+            // current culture before an outer FormattableString.Invariant ever sees it.
             yield return $"Captured {result.frames.Count} frames. Contact sheet: {result.contactSheet}";
             yield return "Times: " + string.Join(" ", result.times.Select(ContactSheet.FormatTime));
             foreach (var entry in result.systemParticleCounts)
@@ -56,15 +58,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             if (result.postProcessing != null)
             {
                 var p = result.postProcessing;
-                yield return FormattableString.Invariant(
-                    $"Post-processing: {p.volumeProfile} (source: {p.volumeProfileSource ?? "none set"}), tonemapping {p.tonemapping}, bloom {(p.bloom ? $"threshold {p.bloomThreshold:0.##} intensity {p.bloomIntensity:0.##}" : "off")}");
+                string bloom = p.bloom ? Inv($"threshold {p.bloomThreshold:0.##} intensity {p.bloomIntensity:0.##}") : "off";
+                yield return $"Post-processing: {p.volumeProfile} (source: {p.volumeProfileSource ?? "none set"}), tonemapping {p.tonemapping}, bloom {bloom}";
             }
             foreach (var c in result.colorStats)
             {
-                yield return FormattableString.Invariant(
-                    $"Color {result.colorStatsFor} {ContactSheet.FormatTime(c.time)}: washedOut {(c.washedOut < 0 ? "-" : $"{c.washedOut * 100:0}%")}, saturation {c.saturation:0.00}, hue {(c.hue < 0 ? "-" : $"{c.hue:0}deg")}, coverage {c.coverage * 100:0.00}%");
+                string washed = c.washedOut < 0 ? "-" : Inv($"{c.washedOut * 100:0}%");
+                string hue = c.hue < 0 ? "-" : Inv($"{c.hue:0}deg");
+                yield return $"Color {result.colorStatsFor} {ContactSheet.FormatTime(c.time)}: washedOut {washed}, " +
+                             Inv($"saturation {c.saturation:0.00}, ") + $"hue {hue}, " + Inv($"coverage {c.coverage * 100:0.00}%");
             }
         }
+
+        static string Inv(FormattableString s) => FormattableString.Invariant(s);
 
         [MenuItem(MenuPath, true)]
         static bool CanCapture() => Selection.activeGameObject != null;
