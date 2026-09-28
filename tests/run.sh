@@ -65,7 +65,10 @@ import os
 os.makedirs(f"{out}/cap", exist_ok=True)
 for i, (shape, color) in enumerate([(disk, (255, 230, 150)), (disk, (240, 150, 60)), (ring, (15, 12, 10))]):
     ref = np.zeros((120, 160, 3), np.uint8); ref[:] = (70, 140, 50)          # grass
+    ref[:, ::16] = (45, 95, 32)                                               # darker mowing stripes (background too)
     ref[shape] = color
+    if i == 2:
+        ref[100:112, 10:40] = (20, 34, 16)                                    # dark smoke over grass: effect
     Image.fromarray(ref).save(f"{out}/ref{i}.png")
     cap = np.zeros((120, 160, 3), np.uint8); cap[:] = (78, 138, 58)           # capture on a ground color
     cap[shape] = color
@@ -83,10 +86,12 @@ bad = []
 if not (f[0]["white"] > 0.9 or f[0]["bright"] > 0.9): bad.append(f"frame 0 should be white/bright: {f[0]}")
 if not (f[1]["bright"] > 0.9 and 20 <= f[1]["bright_hue"] <= 35): bad.append(f"frame 1 should be orange: {f[1]}")
 if not (f[2]["ink"] > 0.9): bad.append(f"frame 2 should be ink: {f[2]}")
-if abs(f[1]["coverage"] - 0.26) > 0.03: bad.append(f"grass not excluded: coverage {f[1]['coverage']}")
+if abs(f[1]["coverage"] - 0.26) > 0.03: bad.append(f"grass (and its dark stripes) not excluded: coverage {f[1]['coverage']}")
+if f[2]["coverage"] < 0.13: bad.append(f"dark smoke over grass should count as effect: coverage {f[2]['coverage']}")
 s = cmp["summary"]
 if s["mean_abs_bright_hue_difference"] not in (0, 0.0) or max(s["mean_abs_share_difference"].values()) > 0.02: bad.append(f"identical frames should compare equal: {s}")
-print("PASS vfxref: grass excluded, white/orange/ink classified, identical capture compares equal" if not bad else "FAIL vfxref: " + "; ".join(bad))
+if cmp["summary"].get("background_used") != ["#4E8A3A"]: bad.append(f"background_used: {cmp['summary'].get('background_used')}")
+print("PASS vfxref: grass and its dark stripes excluded, dark smoke kept, white/orange/ink classified, identical capture compares equal" if not bad else "FAIL vfxref: " + "; ".join(bad))
 sys.exit(1 if bad else 0)
 PY
   rm -rf "$out"

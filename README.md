@@ -87,7 +87,7 @@ ile üretilir; pakete yeni dosya eklerken çalıştırın.
   yeni içeriği almayabilir.
 - Paket sürümü `Editor/ToolkitInfo.cs` ile aynı tutulur (testler kontrol eder); her araç
   sonucu `toolkitVersion` döndürür. Plugin'in istediği en düşük paket sürümü
-  `unity-adapter` skill'inde yazılıdır (şu an: plugin 0.5.2 → paket ≥ 0.5.1).
+  `unity-adapter` skill'inde yazılıdır (şu an: plugin 0.5.3 → paket ≥ 0.5.1).
 
 Unity kurmadan çalışan testler: `tests/run.sh` (.NET 8 SDK gerekir). Paketi tüm derleme
 varyantlarında Unity referans DLL'lerine karşı derler ve tariflerin gerçek Unity modül

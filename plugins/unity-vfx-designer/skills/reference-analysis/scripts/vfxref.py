@@ -25,7 +25,8 @@ framings because they are shares of the effect, not of the frame:
   white   value >= 0.85 and saturation < 0.2    (hot core)
   bright  value >= 0.6 and saturation >= 0.25   (the effect's color)
   ink     value < 0.18                          (black strokes, dark smoke cores)
-  mid     everything else                       (translucent parts, shading, smoke)
+  smoke   the background's own hue, darker than the background (translucent dark smoke over it)
+  mid     everything else                       (translucent color, shading, soft edges)
 
 Needs numpy and Pillow. Every command prints what it wrote; open the PNGs and look.
 """
@@ -92,32 +93,43 @@ def auto_background_hues(a, h, s, v):
             continue
         c = (edges[i] + edges[i + 1]) / 2
         near = sel & hue_in(h, (c - 20) % 360, (c + 20) % 360)
-        # Only as bright as the background itself: a bright yellow effect next to yellow-green
-        # grass must not be removed with it.
+        # Only within the background's own brightness range: a bright yellow effect next to
+        # yellow-green grass must not be removed with it, and smoke darker than the darkest grass
+        # (shadow stripes included, they reach the border too) stays in.
         vmax = float(np.percentile(v[near], 98)) + 0.05 if near.any() else 1.0
-        ranges.append(((c - 20) % 360, (c + 20) % 360, vmax))
+        vmin = float(np.percentile(v[near], 2)) - 0.03 if near.any() else 0.25
+        ranges.append(((c - 20) % 360, (c + 20) % 360, vmax, max(0.05, vmin)))
     return ranges
 
 
 def effect_mask(a, exclude_hues=None, background_rgb=None, auto=True):
-    """Pixels that belong to the effect. Background is either a known flat color (captures) or
-    hue ranges (references over grass/sky), given or detected from the crop border."""
+    """Pixels that belong to the effect, and among them the "smoke" pixels: background seen through
+    something darker (translucent dark smoke over grass keeps the grass's hue at a lower value).
+    Background is either a known flat color (captures) or hue ranges (references over grass/sky),
+    given or detected from the crop border."""
     h, s, v = rgb_to_hsv(a)
     mask = np.ones(h.shape, bool)
+    darkened = np.zeros(h.shape, bool)
     used = []
     if background_rgb is not None:
         bg = np.array(background_rgb, float)
         mask &= np.abs(a - bg).max(-1) > 16 / 255
+        bh, bs, bv = rgb_to_hsv(bg[None, :])
+        if bs[0] > 0.2:
+            d = np.abs(h - bh[0])
+            darkened |= (np.minimum(d, 360 - d) < 20) & (s > 0.15) & (v < bv[0] - 0.05)
     ranges = list(exclude_hues or [])
     if background_rgb is None and auto:
         ranges += auto_background_hues(a, h, s, v)
     for r in ranges:
         lo, hi = r[0], r[1]
         vmax = r[2] if len(r) > 2 else 1.01
-        # Keep dark pixels even in a background hue: dark smoke over grass stays greenish.
-        mask &= ~(hue_in(h, lo, hi) & (s > 0.2) & (v > 0.25) & (v <= vmax))
-        used.append([round(lo), round(hi)] + ([round(vmax, 2)] if len(r) > 2 else []))
-    return mask, (h, s, v), used
+        vmin = r[3] if len(r) > 3 else 0.25
+        # Keep pixels darker than the background: dark smoke over grass stays greenish.
+        mask &= ~(hue_in(h, lo, hi) & (s > 0.2) & (v >= vmin) & (v <= vmax))
+        darkened |= hue_in(h, lo, hi) & (s > 0.15) & (v < vmin)
+        used.append([round(lo), round(hi)] + ([round(vmin, 2), round(vmax, 2)] if len(r) > 2 else []))
+    return mask, (h, s, v), used, mask & darkened
 
 
 def kmeans(x, k, iters=25, seed=0):
@@ -152,18 +164,19 @@ def circular_mean(deg, weights=None):
     return round(float(math.degrees(math.atan2(y, x)) % 360), 1)
 
 
-def measure(a, mask, hsv, palette_size=5):
+def measure(a, mask, hsv, darkened=None, palette_size=5):
     h, s, v = hsv
     n = int(mask.sum())
     out = {"coverage": round(n / mask.size, 4)}
     if n < 20:
-        out.update({"white": 0, "bright": 0, "ink": 0, "mid": 0, "bright_hue": None, "palette": []})
+        out.update({"white": 0, "bright": 0, "ink": 0, "smoke": 0, "mid": 0, "bright_hue": None, "palette": []})
         return out
     white = mask & (v >= 0.85) & (s < 0.2)
     bright = mask & (v >= 0.6) & (s >= 0.25)
-    ink = mask & (v < 0.18)
-    mid = mask & ~white & ~bright & ~ink
-    out.update({k: round(float(m.sum()) / n, 3) for k, m in (("white", white), ("bright", bright), ("ink", ink), ("mid", mid))})
+    ink = mask & (v < 0.18) & ~(darkened if darkened is not None else False)
+    smoke = (darkened if darkened is not None else np.zeros_like(mask)) & mask & ~white & ~bright
+    mid = mask & ~white & ~bright & ~ink & ~smoke
+    out.update({k: round(float(m.sum()) / n, 3) for k, m in (("white", white), ("bright", bright), ("ink", ink), ("smoke", smoke), ("mid", mid))})
     out["bright_hue"] = circular_mean(h[bright], s[bright]) if bright.any() else None
     out["bright_sat"] = round(float(s[bright].mean()), 2) if bright.any() else None
     px = a[mask]
@@ -289,7 +302,7 @@ def palette_strip(palette, w, h=26):
 
 def fmt(m):
     hue = "-" if m.get("bright_hue") is None else f"{m['bright_hue']:.0f}"
-    return f"W{m['white']*100:.0f} B{m['bright']*100:.0f} I{m['ink']*100:.0f} h{hue}"
+    return f"W{m['white']*100:.0f} B{m['bright']*100:.0f} I{m['ink']*100:.0f} S{m.get('smoke', 0)*100:.0f} h{hue}"
 
 
 # ----------------------------------------------------------------- commands
@@ -307,12 +320,12 @@ def cmd_sheet(a):
         box = parse_crop(a.crop, im.size)
         crop = im.crop(box) if box else im
         arr = np.asarray(crop).astype(float) / 255
-        mask, hsv, used = effect_mask(arr, exclude, auto=not a.no_auto_background)
+        mask, hsv, used, darkened = effect_mask(arr, exclude, auto=not a.no_auto_background)
         for box_text in a.ignore or []:
             ib = parse_crop(box_text, crop.size)
             mask[ib[1]:ib[3], ib[0]:ib[2]] = False
         overlays.append(mask_overlay(crop, mask))
-        m = measure(arr, mask, hsv)
+        m = measure(arr, mask, hsv, darkened)
         m.update({"index": i, "time": t, "source": src, "excluded_hues": used})
         results.append(m)
         crop_path = out / f"ref_{i:02d}.png"
@@ -382,9 +395,7 @@ def cmd_compare(a):
         bg = [int(hx[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     cap_times = list(cap.keys())
     warnings = []
-    if bg is not None and max(bg) < 0.2 and max(r["ink"] for r in ref["frames"]) > 0.05:
-        warnings.append("The reference has ink (black) layers but the capture background is dark: ink cannot be told "
-                        "apart from it and measures as missing. Compare on the ground color or a light background.")
+    backgrounds_used = set()
     cols_ref, cols_cap, labels, rows_out = [], [], [], []
     for i, r in enumerate(ref["frames"]):
         t = r["time"] if r["time"] is not None else i * a.spacing
@@ -393,18 +404,20 @@ def cmd_compare(a):
         im = Image.open(cap[nearest]).convert("RGB")
         arr = np.asarray(im).astype(float) / 255
         if bg is None:
-            corner = np.concatenate([arr[:4, :4].reshape(-1, 3), arr[-4:, -4:].reshape(-1, 3)]).mean(0)
+            # Bottom corners: with a ground plane they are ground; top corners may be sky.
+            corner = np.concatenate([arr[-4:, :4].reshape(-1, 3), arr[-4:, -4:].reshape(-1, 3)]).mean(0)
             use_bg = corner
         else:
             use_bg = bg
-        mask, hsv, _ = effect_mask(arr, background_rgb=use_bg, auto=False)
-        m = measure(arr, mask, hsv)
-        d = {k: round(m[k] - r[k], 3) for k in ("white", "bright", "ink", "mid")}
+        backgrounds_used.add(hexcode(use_bg))
+        mask, hsv, _, darkened = effect_mask(arr, background_rgb=use_bg, auto=False)
+        m = measure(arr, mask, hsv, darkened)
+        d = {k: round(m[k] - r.get(k, 0), 3) for k in ("white", "bright", "ink", "smoke", "mid")}
         hue_diff = None
         if m.get("bright_hue") is not None and r.get("bright_hue") is not None:
             hue_diff = round(((m["bright_hue"] - r["bright_hue"] + 180) % 360) - 180, 1)
-        rows_out.append({"reference_time": r["time"], "capture_time": nearest, "reference": {k: r[k] for k in ("white", "bright", "ink", "mid", "bright_hue")},
-                         "capture": {k: m[k] for k in ("white", "bright", "ink", "mid", "bright_hue", "coverage")},
+        rows_out.append({"reference_time": r["time"], "capture_time": nearest, "reference": {k: r.get(k, 0) for k in ("white", "bright", "ink", "smoke", "mid", "bright_hue")},
+                         "capture": {k: m[k] for k in ("white", "bright", "ink", "smoke", "mid", "bright_hue", "coverage")},
                          "difference": d, "bright_hue_difference": hue_diff})
         cols_ref.append(Image.open(r["crop"]).convert("RGB") if Path(r["crop"]).exists() else None)
         cols_cap.append(im)
@@ -421,11 +434,18 @@ def cmd_compare(a):
     hue_diffs = [abs(r["bright_hue_difference"]) for r in rows_out if r["bright_hue_difference"] is not None]
     summary = {
         "mean_abs_bright_hue_difference": round(float(np.mean(hue_diffs)), 1) if hue_diffs else None,
-        "mean_abs_share_difference": {k: round(float(np.mean([abs(r["difference"][k]) for r in rows_out])), 3) for k in ("white", "bright", "ink", "mid")},
-        "curve_correlation": {k: curve_corr(k) for k in ("white", "bright", "ink")},
+        "mean_abs_share_difference": {k: round(float(np.mean([abs(r["difference"][k]) for r in rows_out])), 3) for k in ("white", "bright", "ink", "smoke", "mid")},
+        "curve_correlation": {k: curve_corr(k) for k in ("white", "bright", "ink", "smoke")},
         "note": "Correlation near 1 = the capture's composition changes over time like the reference (same sequence). "
                 "Share differences are of the effect's own pixels; hue differences are in degrees (+ = capture more toward green/yellow).",
     }
+    if max(r["ink"] for r in ref["frames"]) > 0.05:
+        dark = [hx for hx in backgrounds_used if max(int(hx[i:i + 2], 16) for i in (1, 3, 5)) < 0.2 * 255]
+        if dark:
+            warnings.append(f"The reference has ink (black) layers but the capture was measured against a dark background "
+                            f"({', '.join(sorted(dark))}): ink cannot be told apart from it and measures as missing. "
+                            "Compare on the ground color or a light background.")
+    summary["background_used"] = sorted(backgrounds_used)
     (out / "compare.json").write_text(json.dumps({"columns": rows_out, "summary": summary, "warnings": warnings}, indent=2))
     for w in warnings:
         print("warning: " + w, file=sys.stderr)

@@ -46,8 +46,9 @@ vfxref.py sheet <out> --video clip.mp4 --fps 20 --start 1.0 --end 2.8 --crop ...
    hue ranges if not, and rerun.
 
 `reference.json`, per frame: `coverage` (share of the crop), and shares **of the effect's
-own pixels**: `white` (hot core), `bright` (the effect's color), `ink` (near black), `mid`
-(translucent, shading, smoke); `bright_hue` and `bright_sat` of the bright pixels; a small
+own pixels**: `white` (hot core), `bright` (the effect's color), `ink` (near black, not the
+background's hue), `smoke` (the background seen through something darker: translucent dark
+smoke over grass), `mid` (translucent color, shading, soft edges); `bright_hue` and `bright_sat` of the bright pixels; a small
 `palette`. At the top: a merged `palette` and `summary` (`bright_peak`, `ink_peak`,
 `hue_path`).
 
@@ -84,3 +85,8 @@ vfxref.py compare <out> --reference <analysis>/reference.json \
   `mean_abs_bright_hue_difference` say how far each phase is off.
 - Framing differs between a gameplay screenshot and a capture, so compare shares, hues and
   order, not pixel positions or absolute coverage.
+- When no `--background` is given, the capture's background is read from the frames'
+  bottom corners (the ground, with `ground`); `summary.background_used` says which color was
+  used.
+- **Characters and UI:** a following camera moves the player through the crop; check the
+  "measured" row of every frame and widen `--ignore` boxes until no character is lit.
