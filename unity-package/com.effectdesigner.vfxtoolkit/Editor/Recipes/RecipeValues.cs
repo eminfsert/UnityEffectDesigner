@@ -185,23 +185,31 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 
             if (token is JArray keys && keys.Count > 0)
             {
-                var frames = new List<Keyframe>();
-                bool explicitTangents = false;
+                // Keys without tangents are smoothed (clamped auto); keys with [t, v, in, out] keep
+                // exactly the given tangents.
+                var frames = new List<(Keyframe key, bool explicitTangents)>();
                 foreach (var k in keys)
                 {
-                    if (!(k is JArray kv) || kv.Count < 2)
+                    if (!(k is JArray kv) || (kv.Count != 2 && kv.Count != 4))
                         throw new RecipeException($"{where}: curve keys must be [time, value] or [time, value, inTangent, outTangent].");
                     var frame = new Keyframe(kv[0].Value<float>(), kv[1].Value<float>());
-                    if (kv.Count >= 4)
+                    if (kv.Count == 4)
                     {
                         frame.inTangent = kv[2].Value<float>();
                         frame.outTangent = kv[3].Value<float>();
-                        explicitTangents = true;
                     }
-                    frames.Add(frame);
+                    frames.Add((frame, kv.Count == 4));
                 }
-                var curve = new AnimationCurve(frames.OrderBy(f => f.time).ToArray());
-                return explicitTangents ? curve : Easing.Smooth(curve);
+                frames.Sort((a, b) => a.key.time.CompareTo(b.key.time));
+                var curve = Easing.Smooth(new AnimationCurve(frames.Select(f => f.key).ToArray()));
+                for (int i = 0; i < frames.Count; i++)
+                {
+                    if (!frames[i].explicitTangents) continue;
+                    AnimationUtility.SetKeyLeftTangentMode(curve, i, AnimationUtility.TangentMode.Free);
+                    AnimationUtility.SetKeyRightTangentMode(curve, i, AnimationUtility.TangentMode.Free);
+                    curve.MoveKey(i, frames[i].key);
+                }
+                return curve;
             }
             throw new RecipeException($"{where}: expected curve keys [[t, v], ...] or {{\"ease\": name}}.");
         }

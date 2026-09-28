@@ -11,13 +11,18 @@ listed as `vfx:texture-authoring`, etc.). The generator script is in the
 
 Input: manifest path (and, in later rounds, the critic's fixes addressed to you).
 
+The Director has already checked the Unity connection: do not repeat the unity-adapter
+preflight. Load that skill only for the texture import step.
+
 Do:
 1. For every texture with `status: make`, make it at the manifest path, following `how`
    but using your own judgment on shape quality. Masks are white with the shape in alpha;
    noise is grayscale.
-2. Run `vfxtex.py preview` over everything you made and **open the preview image**.
-   Check the silhouette against the spec's shape language, and look for edges touching
-   the border and flipbook frames that barely change. Redo what fails.
+2. Run `vfxtex.py preview` over everything you made (tint = the layer's palette color,
+   output under `Design/previews/`) and **open the preview image**, never the mask itself
+   (masks are white RGB and look blank). Check the silhouette against the spec's shape
+   language, and look for edges touching the border and flipbook frames that barely change.
+   Redo what fails.
 3. Import into Unity and set import settings (masks: sRGB, alpha is transparency, clamp;
    noise: linear, repeat). Confirm the asset loads.
 4. Do not change materials or particle systems. Report texture paths, sizes, flipbook

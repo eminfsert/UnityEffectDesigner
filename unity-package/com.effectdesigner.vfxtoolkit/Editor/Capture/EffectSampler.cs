@@ -132,6 +132,49 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             return label;
         }
 
+        /// <summary>
+        /// The renderer of each system in <see cref="SystemLabels"/> order, or null when it has none or
+        /// it is disabled (nothing of that system is ever drawn).
+        /// </summary>
+        public List<Renderer> SystemRenderers()
+        {
+            var renderers = new List<Renderer>();
+            foreach (var ps in _allParticleSystems) renderers.Add(Drawn(ps.GetComponent<ParticleSystemRenderer>()));
+            foreach (var vfx in _visualEffects) renderers.Add(Drawn(vfx.GetComponent<Renderer>()));
+            return renderers;
+        }
+
+        static Renderer Drawn(Renderer r) => r != null && r.enabled && r.gameObject.activeInHierarchy ? r : null;
+
+        /// <summary>
+        /// Draws only <paramref name="keep"/> (every other renderer of the effect is disabled) until the
+        /// returned scope is disposed. Simulation is unaffected: only drawing is switched off.
+        /// </summary>
+        public System.IDisposable Isolate(Renderer keep)
+        {
+            var disabled = new List<Renderer>();
+            foreach (var r in _renderers)
+            {
+                if (r != null && r != keep && r.enabled)
+                {
+                    r.enabled = false;
+                    disabled.Add(r);
+                }
+            }
+            return new RestoreRenderers(disabled);
+        }
+
+        sealed class RestoreRenderers : System.IDisposable
+        {
+            readonly List<Renderer> _renderers;
+            public RestoreRenderers(List<Renderer> renderers) => _renderers = renderers;
+            public void Dispose()
+            {
+                foreach (var r in _renderers)
+                    if (r != null) r.enabled = true;
+            }
+        }
+
         /// <summary>(parent index, sub-emitter index) pairs into <see cref="SystemLabels"/>.</summary>
         public List<(int parent, int child)> SubEmitterLinks()
         {

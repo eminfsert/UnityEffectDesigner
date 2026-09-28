@@ -65,6 +65,9 @@ static class Program
         failures += CheckColorStats();
         failures += CheckHdrIntensity();
         failures += CheckCaptureLogCulture();
+        failures += CheckReadabilityWarning();
+        failures += CheckEasingKeys();
+        failures += CheckToolkitVersion();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -120,6 +123,11 @@ static class Program
         };
         result.systemParticleCounts["Sparks"] = new System.Collections.Generic.List<int> { 0, 40 };
         result.colorStats.Add(new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { time = 0.35f, coverage = 0.0321f, washedOut = 0.45f, saturation = 0.52f, hue = 41.1f });
+        result.colorStatsByBackground["dark"] = result.colorStats;
+        result.systemColorStats["Sparks"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats>
+        {
+            new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { time = 0.35f, coverage = 0.0105f, washedOut = -1f, saturation = 0.71f, hue = 35.4f },
+        };
 
         var previous = System.Globalization.CultureInfo.CurrentCulture;
         try
@@ -127,8 +135,9 @@ static class Program
             System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
             var lines = EffectDesigner.VFXToolkit.Editor.Capture.CaptureMenu.SummaryLines(result).ToList();
             var numeric = lines.Where(l => l.StartsWith("Post-processing") || l.StartsWith("Color") || l.StartsWith("Times")).ToList();
-            bool ok = numeric.Count == 3 && numeric.All(l => !System.Text.RegularExpressions.Regex.IsMatch(l, @"\d,\d") && !l.Contains("%0") && !l.Contains("% "))
-                      && numeric.Any(l => l.Contains("threshold 0.95 intensity 0.85")) && numeric.Any(l => l.Contains("saturation 0.52") && l.Contains("washedOut 45%"));
+            bool ok = numeric.Count == 4 && numeric.All(l => !System.Text.RegularExpressions.Regex.IsMatch(l, @"\d,\d") && !l.Contains("%0") && !l.Contains("% "))
+                      && numeric.Any(l => l.Contains("threshold 0.95 intensity 0.85")) && numeric.Any(l => l.StartsWith("Color three_quarter/dark") && l.Contains("saturation 0.52") && l.Contains("washedOut 45%"))
+                      && numeric.Any(l => l.StartsWith("Color Sparks alone 0.35") && l.Contains("washedOut -") && l.Contains("hue 35deg"));
             Console.WriteLine(ok ? "PASS capture log lines are culture-invariant under tr-TR" : "FAIL capture log lines under tr-TR:\n   " + string.Join("\n   ", numeric));
             return ok ? 0 : 1;
         }
@@ -136,6 +145,66 @@ static class Program
         {
             System.Globalization.CultureInfo.CurrentCulture = previous;
         }
+    }
+
+    // Readability gate: much lower coverage on a light background than on dark is flagged, in an invariant format.
+    static int CheckReadabilityWarning()
+    {
+        EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult Make(float light)
+        {
+            var r = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult();
+            r.colorStatsByBackground["dark"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats>
+                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.10f }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.06f } };
+            r.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats>
+                { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light }, new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = light } };
+            EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(r);
+            return r;
+        }
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+            var faint = Make(0.02f);
+            var fine = Make(0.07f);
+            bool ok = faint.warnings.Count == 1 && faint.warnings[0].Contains("'light'") && faint.warnings[0].Contains("25%") && faint.warnings[0].Contains("8.0%")
+                      && fine.warnings.Count == 0;
+            Console.WriteLine(ok ? "PASS readability: low coverage on light vs dark is flagged (culture-invariant), comparable coverage is not"
+                                 : $"FAIL readability: faint -> [{string.Join(" | ", faint.warnings)}], fine -> [{string.Join(" | ", fine.warnings)}]");
+            return ok ? 0 : 1;
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    // Named curves: a spike is visible from its first frame, a pop leaves its start fast (tangents follow the ease, not ClampedAuto).
+    static int CheckEasingKeys()
+    {
+        var spike = Easing.Keys("spike", 0f, 1f);
+        var pop = Easing.Keys("pop", 0f, 1f);
+        var outExpo = Easing.Keys("ease_out_expo", 2f, 0f);
+        bool ok = spike[0].value >= 0.8f && spike[spike.Length - 1].value <= 0.001f
+                  && pop[0].value == 0f && pop[0].outTangent > 10f && pop.Max(k => k.value) >= 1.15f
+                  && outExpo[0].value == 2f && outExpo[0].outTangent < -10f && Math.Abs(outExpo[outExpo.Length - 1].value) < 0.01f;
+        Console.WriteLine(ok
+            ? $"PASS easing keys: spike starts at {spike[0].value:0.00}, pop start slope {pop[0].outTangent:0}, ease_out_expo start slope {outExpo[0].outTangent:0}"
+            : $"FAIL easing keys: spike[0] {spike[0].value}, pop[0] {pop[0].value}/{pop[0].outTangent}, expo[0] {outExpo[0].value}/{outExpo[0].outTangent}");
+        return ok ? 0 : 1;
+    }
+
+    // Tool results report ToolkitInfo.Version; it must match the package agents install.
+    static int CheckToolkitVersion()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "unity-package")))
+            dir = dir.Parent;
+        string version = dir == null ? null
+            : (string)JObject.Parse(File.ReadAllText(Path.Combine(dir.FullName, "unity-package", "com.effectdesigner.vfxtoolkit", "package.json")))["version"];
+        bool ok = version == EffectDesigner.VFXToolkit.Editor.ToolkitInfo.Version;
+        Console.WriteLine(ok ? $"PASS toolkit version {version} matches package.json"
+                             : $"FAIL ToolkitInfo.Version {EffectDesigner.VFXToolkit.Editor.ToolkitInfo.Version} != package.json {version}");
+        return ok ? 0 : 1;
     }
 
     static string[] Run(string file)

@@ -26,6 +26,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
     public sealed class TimelineCaptureResult
     {
+        public string toolkitVersion = ToolkitInfo.Version;
         public string target;
         public string outputFolder;
         public string contactSheet;
@@ -40,7 +41,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public Dictionary<string, List<int>> systemParticleCounts = new Dictionary<string, List<int>>();
         public float[] boundsCenter;
         public float framingRadius;
-        /// <summary>Final camera placement per view (after auto framing).</summary>
+        /// <summary>Final camera placement per view (after auto framing). Pass it back as view_framing to keep the next capture's framing identical.</summary>
         public List<ViewFramingInfo> viewFraming = new List<ViewFramingInfo>();
         public int particleSystems;
         public int visualEffects;
@@ -48,9 +49,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// <summary>Color measurements per time, for the first view on the first background (see colorStatsFor).</summary>
         public List<FrameColorStats> colorStats = new List<FrameColorStats>();
         public string colorStatsFor;
+        /// <summary>Color measurements per time for the first view on every background, by background name: readability on light/ground colors.</summary>
+        public Dictionary<string, List<FrameColorStats>> colorStatsByBackground = new Dictionary<string, List<FrameColorStats>>();
+        /// <summary>
+        /// Color measurements per time of each system rendered alone (first view, first background), by system label.
+        /// Shows each layer's own hue and saturation over its life, without the other layers mixing in.
+        /// </summary>
+        public Dictionary<string, List<FrameColorStats>> systemColorStats = new Dictionary<string, List<FrameColorStats>>();
         /// <summary>Tonemapping and bloom in effect during the capture. Colors are only comparable to the game under the same settings.</summary>
         public PostProcessInfo postProcessing;
+        /// <summary>Problems that likely need a fix.</summary>
         public List<string> warnings = new List<string>();
+        /// <summary>Information about how the capture was made; nothing to fix.</summary>
+        public List<string> notes = new List<string>();
     }
 
     /// <summary>
@@ -143,9 +154,27 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     for (int v = 0; v < framings.Length; v++)
                         framings[v] = new ViewFraming { Center = center, Distance = rig.DistanceToFit(radius), DepthRadius = radius };
 
+                    // Reused placements (view_framing) keep iterations comparable, so those views are not re-framed.
+                    var fixedViews = new bool[framings.Length];
+                    for (int v = 0; v < framings.Length; v++)
+                    {
+                        if (request.ViewFraming.TryGetValue(request.Views[v].Name, out var reuse))
+                        {
+                            framings[v].Center = reuse.lookAt;
+                            framings[v].Distance = reuse.distance;
+                            fixedViews[v] = true;
+                        }
+                    }
+                    foreach (var name in request.ViewFraming.Keys)
+                        if (!request.Views.Exists(view => string.Equals(view.Name, name, StringComparison.OrdinalIgnoreCase)))
+                            result.warnings.Add($"view_framing names view '{name}', which this capture does not render; it was ignored.");
+                    int reused = fixedViews.Count(f => f);
+                    if (reused > 0)
+                        result.notes.Add($"Reused the given camera placement for {reused} of {framings.Length} view(s); they were not auto-framed.");
+
                     // A fixed framing radius means "keep scale comparable between captures", so skip auto framing then.
-                    if (request.AutoFrame && request.FramingRadius <= 0f && hasBounds)
-                        AutoFraming.Refine(rig, sampler, request.Views, request.Times, request.Backgrounds[0].Color, framings, result.warnings);
+                    if (request.AutoFrame && request.FramingRadius <= 0f && hasBounds && reused < framings.Length)
+                        AutoFraming.Refine(rig, sampler, request.Views, request.Times, request.Backgrounds[0].Color, framings, result.warnings, fixedViews);
 
                     for (int v = 0; v < framings.Length; v++)
                     {
@@ -157,10 +186,24 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                         foreach (var bg in request.Backgrounds)
                             result.rows.Add($"{view.Name}/{bg.Name}");
 
-                    // Background-only reference for color stats (first view, first background).
+                    // Background-only references for color stats: first view, every background.
                     rig.Aim(framings[0].Center, framings[0].Distance, framings[0].DepthRadius, request.Views[0]);
-                    var statsReference = rig.RenderBackgroundOnly(request.Backgrounds[0].Color).GetPixels32();
+                    var statsReferences = new Color32[request.Backgrounds.Count][];
+                    for (int b = 0; b < statsReferences.Length; b++)
+                    {
+                        statsReferences[b] = rig.RenderBackgroundOnly(request.Backgrounds[b].Color).GetPixels32();
+                        result.colorStatsByBackground[request.Backgrounds[b].Name] = b == 0 ? result.colorStats : new List<FrameColorStats>();
+                    }
                     result.colorStatsFor = result.rows[0];
+
+                    var systemRenderers = request.SystemColorStats ? sampler.SystemRenderers() : new List<Renderer>();
+                    int drawnSystems = systemRenderers.Count(r => r != null);
+                    // One system alone is the whole effect; measuring it again would say nothing new.
+                    if (drawnSystems < 2)
+                        systemRenderers.Clear();
+                    for (int i = 0; i < systemRenderers.Count; i++)
+                        if (systemRenderers[i] != null)
+                            result.systemColorStats[labels[i]] = new List<FrameColorStats>();
                     result.postProcessing = rig.DescribePostProcessing();
                     result.postProcessing.volumeProfileSource = profileSource;
                     if (profileSource == null)
@@ -186,21 +229,48 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                 string file = Path.Combine(folder, $"{Sanitize(view.Name)}_{Sanitize(bg.Name)}_t{t.ToString("0.000", CultureInfo.InvariantCulture)}.png");
                                 File.WriteAllBytes(file, frame.EncodeToPNG());
                                 sheet.Place(frame, row, column);
-                                if (row == 0)
-                                    result.colorStats.Add(ColorStats.Measure(frame.GetPixels32(), statsReference, t));
+                                if (v == 0)
+                                {
+                                    int b = row;
+                                    result.colorStatsByBackground[bg.Name].Add(ColorStats.Measure(frame.GetPixels32(), statsReferences[b], t));
+                                }
                                 result.frames.Add(new CapturedFrame { time = t, view = view.Name, background = bg.Name, path = file });
                                 row++;
+                            }
+                        }
+
+                        // Each system alone, first view on the first background. Systems with no particles
+                        // right now are measured as empty without rendering.
+                        if (systemRenderers.Count > 0)
+                        {
+                            rig.Aim(framings[0].Center, framings[0].Distance, framings[0].DepthRadius, request.Views[0]);
+                            for (int i = 0; i < systemRenderers.Count; i++)
+                            {
+                                if (systemRenderers[i] == null)
+                                    continue;
+                                FrameColorStats stats;
+                                if (result.systemParticleCounts[labels[i]][column] == 0 && systemRenderers[i] is ParticleSystemRenderer)
+                                {
+                                    stats = new FrameColorStats { time = t, hue = -1f };
+                                }
+                                else
+                                {
+                                    using (sampler.Isolate(systemRenderers[i]))
+                                        stats = ColorStats.Measure(rig.Render(request.Backgrounds[0].Color).GetPixels32(), statsReferences[0], t);
+                                }
+                                result.systemColorStats[labels[i]].Add(stats);
                             }
                         }
                     }
 
                     WarnAboutColor(result);
+                    WarnAboutReadability(result);
 
                     string sheetPath = Path.Combine(folder, "contact_sheet.png");
                     File.WriteAllBytes(sheetPath, sheet.EncodePng());
                     result.contactSheet = sheetPath;
                     if (sheet.CellSize < request.FrameSize)
-                        result.warnings.Add($"Contact sheet cells were downscaled to {sheet.CellSize}px to stay within {ContactSheet.MaxSheetWidth}px; full-size frames are in the output folder.");
+                        result.notes.Add($"Contact sheet cells were downscaled to {sheet.CellSize}px to stay within {ContactSheet.MaxSheetWidth}px; full-size frames are in the output folder.");
                 }
             }
             catch (Exception ex)
@@ -276,10 +346,40 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 worst = Mathf.Max(worst, s.washedOut);
             }
             if (measured > 0 && washed * 2 > measured)
-                result.warnings.Add($"Washed out: in {washed} of {measured} frames most bright pixels have lost their color (up to {worst:P0}). " +
+                result.warnings.Add($"Washed out: in {washed} of {measured} frames most bright pixels have lost their color (up to {Pct(worst)}). " +
                                     "HDR intensity is too high or the tint is white. Use saturated tints with lower intensity, and keep " +
                                     "white for a small core layer.");
         }
+
+        /// <summary>
+        /// Readability across backgrounds: an effect that stands out on dark but barely changes the
+        /// pixels of a light or ground-colored background (typical for additive blending) is measured
+        /// here as much lower coverage on that background than on the best one.
+        /// </summary>
+        internal static void WarnAboutReadability(TimelineCaptureResult result)
+        {
+            if (result.colorStatsByBackground.Count < 2)
+                return;
+            var means = result.colorStatsByBackground.ToDictionary(e => e.Key, e => e.Value.Count > 0 ? e.Value.Average(s => s.coverage) : 0f);
+            var best = means.OrderByDescending(e => e.Value).First();
+            if (best.Value <= 0f)
+                return;
+            foreach (var entry in means)
+            {
+                float ratio = entry.Value / best.Value;
+                if (ratio < ReadableCoverageRatio)
+                    result.warnings.Add($"Low contrast on '{entry.Key}': the effect changes {Pct(ratio)} as many pixels as on '{best.Key}' " +
+                                        $"(mean coverage {Pct(entry.Value, 1)} vs {Pct(best.Value, 1)}). Additive layers vanish on light backgrounds: " +
+                                        "add an alpha-blended or darker outline/shadow layer, or raise saturation.");
+            }
+        }
+
+        /// <summary>"45%" in every culture (a Turkish editor would print "%45", German "45 %").</summary>
+        static string Pct(float share, int decimals = 0) =>
+            (share * 100f).ToString(decimals == 0 ? "0" : "0." + new string('0', decimals), CultureInfo.InvariantCulture) + "%";
+
+        /// <summary>Coverage on a background, relative to the best background, below which the effect counts as hard to read.</summary>
+        public const float ReadableCoverageRatio = 0.5f;
 
         /// <summary>
         /// Accepts a prefab/asset path ("Assets/...prefab"), a scene hierarchy path

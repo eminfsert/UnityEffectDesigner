@@ -82,6 +82,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public string VolumeProfile;
         /// <summary>Re-frame each view on the visible pixels (ignored when FramingRadius is set).</summary>
         public bool AutoFrame = true;
+        /// <summary>
+        /// Camera placements to reuse, by view name (a previous result's viewFraming), so iterations
+        /// are compared at the same scale and position. Views listed here skip auto framing.
+        /// </summary>
+        public Dictionary<string, (Vector3 lookAt, float distance)> ViewFraming =
+            new Dictionary<string, (Vector3, float)>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Also render each system alone (first view, first background) and measure its colors.</summary>
+        public bool SystemColorStats = true;
         public string OutputFolder = "Library/VFXToolkit/Captures";
         public string Label;
 
@@ -160,6 +168,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 request.AddLight = json["add_light"].Value<bool>();
             if (json["auto_frame"] != null)
                 request.AutoFrame = json["auto_frame"].Value<bool>();
+            if (json["system_color_stats"] != null)
+                request.SystemColorStats = json["system_color_stats"].Value<bool>();
+            if (json["view_framing"] != null && !TryParseViewFraming(json["view_framing"], request.ViewFraming, out error))
+                return null;
             request.VolumeProfile = (string)json["volume_profile"];
             if (json["post_processing"] != null)
                 request.PostProcessing = json["post_processing"].Value<bool>();
@@ -175,6 +187,40 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
 
             return request;
+        }
+
+        /// <summary>Accepts the result's own shape: [{view, lookAt | look_at: [x,y,z], distance}].</summary>
+        static bool TryParseViewFraming(JToken token, Dictionary<string, (Vector3, float)> framing, out string error)
+        {
+            error = null;
+            // Parameters may arrive as a JSON string when the client serializes nested values.
+            if (token.Type == JTokenType.String)
+            {
+                try { token = JToken.Parse((string)token); }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    error = $"view_framing is not valid JSON: {ex.Message}";
+                    return false;
+                }
+            }
+            if (!(token is JArray entries))
+            {
+                error = "view_framing must be an array of {view, lookAt: [x,y,z], distance}, e.g. a previous capture's viewFraming.";
+                return false;
+            }
+            foreach (var entry in entries)
+            {
+                var view = (string)entry["view"];
+                var lookAt = (entry["lookAt"] ?? entry["look_at"]) as JArray;
+                float distance = entry["distance"]?.Value<float>() ?? 0f;
+                if (string.IsNullOrWhiteSpace(view) || lookAt == null || lookAt.Count != 3 || !(distance > 0f))
+                {
+                    error = $"Invalid view_framing entry {entry.ToString(Newtonsoft.Json.Formatting.None)}: needs view, lookAt [x,y,z] and distance > 0.";
+                    return false;
+                }
+                framing[view] = (new Vector3(lookAt[0].Value<float>(), lookAt[1].Value<float>(), lookAt[2].Value<float>()), distance);
+            }
+            return true;
         }
 
         static bool TryParseView(JToken token, out CaptureView view, out string error)

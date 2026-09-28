@@ -21,6 +21,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 
     public sealed class ParticleRecipeResult
     {
+        public string toolkitVersion = ToolkitInfo.Version;
         public string root;
         public string prefab;
         public bool dryRun;
@@ -47,7 +48,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 
         static readonly HashSet<string> SystemKeys = new HashSet<string>(new[]
         {
-            "name", "parent", "position", "rotation", "scale", "reset", "active", "renderer",
+            "name", "parent", "position", "rotation", "scale", "reset", "active", "renderer", "order",
         }.Select(RecipeValues.Normalize));
 
         static readonly Dictionary<string, string> RendererAliases = new Dictionary<string, string>
@@ -77,6 +78,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             public Vector3? Position, Rotation, Scale;
             public bool Reset;
             public bool? Active;
+            /// <summary>Sibling index under the parent (draw/inspection order); new systems are appended otherwise.</summary>
+            public int? Order;
             public readonly List<ModulePlan> Modules = new List<ModulePlan>();
             public List<Action<object>> Renderer = new List<Action<object>>();
             public bool RendererHasMaterial;
@@ -92,7 +95,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
         {
             public RecipeContext Context;
             public List<SystemPlan> Systems;
-            public bool DryRun;
+            public bool DryRun, Overwrite;
             public string Target, SavePrefab, RootName;
         }
 
@@ -171,6 +174,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                 Context = ctx,
                 Systems = ordered,
                 DryRun = recipe["dry_run"]?.Value<bool>() ?? false,
+                Overwrite = recipe["overwrite"]?.Value<bool>() ?? false,
                 Target = recipe["target"]?.Value<string>(),
                 SavePrefab = recipe["save_prefab"]?.Value<string>(),
                 RootName = recipe["name"]?.Value<string>(),
@@ -187,7 +191,16 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             var result = new ParticleRecipeResult();
 
             bool editingPrefabAsset = !string.IsNullOrEmpty(target) && target.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase);
+            // A new effect saved as a prefab is built in a preview scene, so the open scene is never touched.
+            bool isolatedNewPrefab = string.IsNullOrEmpty(target) && !string.IsNullOrEmpty(savePrefab);
+            bool offScene = editingPrefabAsset || isolatedNewPrefab;
+            var previewScene = default(UnityEngine.SceneManagement.Scene);
             GameObject root;
+            if (isolatedNewPrefab && AssetDatabase.LoadAssetAtPath<GameObject>(savePrefab) != null && !compiled.Overwrite)
+            {
+                errors.Add($"A prefab already exists at '{savePrefab}'. Pass \"target\": \"{savePrefab}\" to patch it, or \"overwrite\": true to replace it.");
+                return null;
+            }
             if (editingPrefabAsset)
             {
                 if (AssetDatabase.LoadAssetAtPath<GameObject>(target) == null)
@@ -206,8 +219,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     return null;
                 }
             }
+            else if (isolatedNewPrefab)
+            {
+                previewScene = EditorSceneManager.NewPreviewScene();
+                root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? Path.GetFileNameWithoutExtension(savePrefab) : rootName);
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, previewScene);
+            }
             else
             {
+                // No target and no save_prefab: an explicit request to build in the open scene.
                 root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? "VFX_New" : rootName);
                 Undo.RegisterCreatedObjectUndo(root, "Create VFX from recipe");
             }
@@ -215,17 +235,23 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             try
             {
                 foreach (var plan in ordered)
-                    result.systems.Add(Materialize(plan, root, ctx, editingPrefabAsset));
+                    result.systems.Add(Materialize(plan, root, ctx, offScene));
                 for (int i = 0; i < ordered.Count; i++)
-                    ApplyPlan(ordered[i], ctx, editingPrefabAsset, result.systems[i], result.errors);
+                    ApplyPlan(ordered[i], ctx, offScene, result.systems[i], result.errors);
                 foreach (var plan in ordered)
                     LinkSubEmitters(plan, ctx, result.errors);
 
-                result.root = editingPrefabAsset ? target : HierarchyPath(root.transform);
+                result.root = editingPrefabAsset ? target : isolatedNewPrefab ? savePrefab : HierarchyPath(root.transform);
                 if (editingPrefabAsset)
                 {
                     PrefabUtility.SaveAsPrefabAsset(root, target);
                     result.prefab = target;
+                }
+                else if (isolatedNewPrefab)
+                {
+                    MaterialBuilder.EnsureFolder(Path.GetDirectoryName(savePrefab).Replace('\\', '/'));
+                    PrefabUtility.SaveAsPrefabAsset(root, savePrefab);
+                    result.prefab = savePrefab;
                 }
                 else
                 {
@@ -243,6 +269,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             {
                 if (editingPrefabAsset)
                     PrefabUtility.UnloadPrefabContents(root);
+                if (isolatedNewPrefab)
+                    EditorSceneManager.ClosePreviewScene(previewScene);
             }
 
             result.warnings.AddRange(ctx.Warnings);
@@ -262,6 +290,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             TryVector(json, "scale", at, ctx, errors, v => plan.Scale = v);
             plan.Reset = json["reset"]?.Value<bool>() ?? false;
             plan.Active = json["active"]?.Value<bool>();
+            plan.Order = json["order"]?.Value<int>();
             if (plan.Parent != null && !ctx.SystemNames.Contains(plan.Parent))
                 errors.Add($"{at}.parent: '{plan.Parent}' is not a system in this recipe.");
 
@@ -272,7 +301,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     continue;
                 if (!ModuleBinder.Modules.TryGetValue(key, out var module))
                 {
-                    var known = ModuleBinder.Modules.Values.Select(m => m.Name).Concat(new[] { "name", "parent", "position", "rotation", "scale", "reset", "active", "renderer" });
+                    var known = ModuleBinder.Modules.Values.Select(m => m.Name).Concat(new[] { "name", "parent", "position", "rotation", "scale", "reset", "active", "renderer", "order" });
                     errors.Add($"{at}.{entry.Name}: unknown module. Did you mean: {string.Join(", ", ModuleBinder.Suggest(key, known))}?");
                     continue;
                 }
@@ -563,6 +592,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             if (plan.Rotation.HasValue) go.transform.localEulerAngles = plan.Rotation.Value;
             if (plan.Scale.HasValue) go.transform.localScale = plan.Scale.Value;
             if (plan.Active.HasValue) go.SetActive(plan.Active.Value);
+            if (plan.Order.HasValue && go.transform.parent != null)
+                go.transform.SetSiblingIndex(Mathf.Clamp(plan.Order.Value, 0, go.transform.parent.childCount - 1));
 
             foreach (var m in plan.Modules)
             {
@@ -579,6 +610,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                 emission.enabled = true;
                 emission.SetBursts(plan.Bursts);
             }
+            WarnAboutLateBursts(ps, plan.Name, ctx);
 
             if (plan.Sprites != null)
             {
@@ -647,6 +679,28 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                     }
                 }
                 catch (RecipeException ex) { errors.Add(ex.Message); }
+            }
+        }
+
+        /// <summary>
+        /// A non-looping system stops emitting when its duration ends, so a burst scheduled in the
+        /// last frame before the end (or after it) never fires. Seen in a real effect: duration 0.1
+        /// with bursts at 0.08 and 0.095 emitted only the first.
+        /// </summary>
+        static void WarnAboutLateBursts(ParticleSystem ps, string name, RecipeContext ctx)
+        {
+            var main = ps.main;
+            if (main.loop)
+                return;
+            var emission = ps.emission;
+            var bursts = new ParticleSystem.Burst[emission.burstCount];
+            emission.GetBursts(bursts);
+            const float frame = 1f / 60f;
+            foreach (var b in bursts)
+            {
+                if (b.time > main.duration - frame)
+                    ctx.Warnings.Add($"{name}: burst at {RecipeValues.Format(b.time)} s is within the last frame of a non-looping {RecipeValues.Format(main.duration)} s system and may never fire. " +
+                                     $"Make main.duration at least {RecipeValues.Format(b.time + 2 * frame)} or move the burst earlier.");
             }
         }
 

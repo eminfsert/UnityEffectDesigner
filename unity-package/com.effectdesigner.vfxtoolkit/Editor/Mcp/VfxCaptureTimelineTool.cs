@@ -13,8 +13,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             "deterministically (fixed seeds, played frame by frame at 60 fps from t=0, sub-emitters included), inside an isolated preview scene. " +
             "Writes one PNG per time x view x background and a contact sheet (columns = times, labelled; " +
             "rows = view/background). Returns absolute file paths: open the contact sheet image to judge " +
-            "timing, shape, readability and color. Also returns alive particle counts per time and the " +
-            "framing bounds. View presets: front, back, side, top, three_quarter, low; or " +
+            "timing, shape, readability and color. Also returns alive particle counts per system and time, " +
+            "color measurements (coverage, washedOut, saturation, hue) per time for every background and for each system rendered alone, " +
+            "the camera placement per view (pass it back as view_framing to compare iterations at identical framing), warnings (likely problems) " +
+            "and notes (information). View presets: front, back, side, top, three_quarter, low; or " +
             "{name, azimuth, elevation} in degrees (azimuth 0 = camera on -Z). Backgrounds: dark, mid, light " +
             "or hex colors.")]
     public static class VfxCaptureTimelineTool
@@ -44,6 +46,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
 
             [ToolParameter("Re-frame each view on the pixels the effect actually covers across all times (centred, ~80% of the frame). Default true.", Required = false)]
             public bool? auto_frame { get; set; }
+
+            [ToolParameter("Camera placements to reuse, e.g. a previous capture's viewFraming: [{view, lookAt: [x,y,z], distance}]. Listed views skip auto framing, so before/after captures line up.", Required = false)]
+            public object[] view_framing { get; set; }
+
+            [ToolParameter("Also render each system alone (first view, first background) and return its colors in systemColorStats. Default true; costs one extra render per system per time.", Required = false)]
+            public bool? system_color_stats { get; set; }
 
             [ToolParameter("Vertical field of view in degrees. Default 35.", Required = false)]
             public float? fov { get; set; }

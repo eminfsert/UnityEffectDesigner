@@ -37,6 +37,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
             foreach (var warning in result.warnings)
                 Debug.LogWarning($"[VFX Toolkit] {warning}");
+            foreach (var note in result.notes)
+                Debug.Log($"[VFX Toolkit] Note: {note}");
             foreach (var line in SummaryLines(result))
                 Debug.Log("[VFX Toolkit] " + line);
             EditorUtility.RevealInFinder(result.contactSheet);
@@ -51,7 +53,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         {
             // Every interpolation with a number goes through Inv: a nested $"..." is formatted with the
             // current culture before an outer FormattableString.Invariant ever sees it.
-            yield return $"Captured {result.frames.Count} frames. Contact sheet: {result.contactSheet}";
+            yield return $"Captured {result.frames.Count} frames (toolkit {result.toolkitVersion}). Contact sheet: {result.contactSheet}";
             yield return "Times: " + string.Join(" ", result.times.Select(ContactSheet.FormatTime));
             foreach (var entry in result.systemParticleCounts)
                 yield return $"Particles {entry.Key}: {string.Join(" ", entry.Value)}";
@@ -61,13 +63,23 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 string bloom = p.bloom ? Inv($"threshold {p.bloomThreshold:0.##} intensity {p.bloomIntensity:0.##}") : "off";
                 yield return $"Post-processing: {p.volumeProfile} (source: {p.volumeProfileSource ?? "none set"}), tonemapping {p.tonemapping}, bloom {bloom}";
             }
-            foreach (var c in result.colorStats)
-            {
-                string washed = c.washedOut < 0 ? "-" : Inv($"{c.washedOut * 100:0}%");
-                string hue = c.hue < 0 ? "-" : Inv($"{c.hue:0}deg");
-                yield return $"Color {result.colorStatsFor} {ContactSheet.FormatTime(c.time)}: washedOut {washed}, " +
-                             Inv($"saturation {c.saturation:0.00}, ") + $"hue {hue}, " + Inv($"coverage {c.coverage * 100:0.00}%");
-            }
+            var byBackground = result.colorStatsByBackground.Count > 0
+                ? result.colorStatsByBackground.Select(e => (label: $"{(result.colorStatsFor ?? "").Split('/')[0]}/{e.Key}", stats: e.Value))
+                : new[] { (label: result.colorStatsFor, stats: result.colorStats) };
+            foreach (var (label, stats) in byBackground)
+                foreach (var c in stats)
+                    yield return ColorLine(label, c);
+            foreach (var entry in result.systemColorStats)
+                foreach (var c in entry.Value)
+                    yield return ColorLine(entry.Key + " alone", c);
+        }
+
+        static string ColorLine(string label, FrameColorStats c)
+        {
+            string washed = c.washedOut < 0 ? "-" : Inv($"{c.washedOut * 100:0}%");
+            string hue = c.hue < 0 ? "-" : Inv($"{c.hue:0}deg");
+            return $"Color {label} {ContactSheet.FormatTime(c.time)}: washedOut {washed}, " +
+                   Inv($"saturation {c.saturation:0.00}, ") + $"hue {hue}, " + Inv($"coverage {c.coverage * 100:0.00}%");
         }
 
         static string Inv(FormattableString s) => FormattableString.Invariant(s);

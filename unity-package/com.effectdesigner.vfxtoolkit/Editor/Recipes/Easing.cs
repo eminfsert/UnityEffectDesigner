@@ -11,7 +11,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
     /// </summary>
     public static class Easing
     {
-        const int Samples = 16;
+        const int Samples = 24;
 
         static readonly Dictionary<string, Func<float, float>> Functions = new Dictionary<string, Func<float, float>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -26,8 +26,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
             { "ease_out_expo", t => t >= 1f ? 1f : 1f - Mathf.Pow(2f, -10f * t) },
             { "ease_in_back", t => 2.70158f * t * t * t - 1.70158f * t * t },
             { "ease_out_back", t => 1f + 2.70158f * Mathf.Pow(t - 1f, 3f) + 1.70158f * Mathf.Pow(t - 1f, 2f) },
-            // 0 -> 1 almost instantly, then decays: flashes, impacts.
-            { "spike", t => t < 0.08f ? t / 0.08f : Mathf.Pow(1f - (t - 0.08f) / 0.92f, 2.5f) },
+            // Starts near its peak (visible from the first frame), tops out at 4% of life, then decays fast:
+            // flashes, impacts. Starting from 0 made a one-frame flash invisible at age 0.
+            { "spike", t => t < 0.04f ? Mathf.Lerp(0.85f, 1f, t / 0.04f) : Mathf.Pow(1f - (t - 0.04f) / 0.96f, 2.5f) },
             // Overshoots to 1.2 then settles and fades at the end: stylized "pop".
             { "pop", t => t < 0.15f ? 1.2f * (1f - Mathf.Pow(1f - t / 0.15f, 3f))
                         : t < 0.3f ? Mathf.Lerp(1.2f, 1f, (t - 0.15f) / 0.15f)
@@ -42,16 +43,26 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
         public static bool Exists(string name) => name != null && Functions.ContainsKey(name);
 
         /// <summary>Curve over t in [0,1] with value from + (to - from) * ease(t).</summary>
-        public static AnimationCurve Curve(string name, float from, float to)
+        public static AnimationCurve Curve(string name, float from, float to) => new AnimationCurve(Keys(name, from, to));
+
+        /// <summary>
+        /// Sampled keys with tangents from the ease function's own slope. Auto/clamped tangents
+        /// would flatten the ends (a "pop" would start slowly: the opposite of fast-then-hang).
+        /// </summary>
+        public static Keyframe[] Keys(string name, float from, float to)
         {
             var f = Functions[name];
+            const float h = 0.002f;
+            float scale = to - from;
             var keys = new Keyframe[Samples + 1];
             for (int i = 0; i <= Samples; i++)
             {
                 float t = i / (float)Samples;
-                keys[i] = new Keyframe(t, from + (to - from) * f(t));
+                float t0 = Mathf.Max(0f, t - h), t1 = Mathf.Min(1f, t + h);
+                float slope = (f(t1) - f(t0)) / (t1 - t0) * scale;
+                keys[i] = new Keyframe(t, from + scale * f(t), slope, slope);
             }
-            return Smooth(new AnimationCurve(keys));
+            return keys;
         }
 
         /// <summary>Recomputes tangents so hand-written keys interpolate smoothly without overshoot.</summary>

@@ -14,6 +14,11 @@ user-invocable: false
 - Sizes are powers of two: 128 for small glows and sparks, 256 for most shapes, 512 only
   for large hero shapes (shockwave rings, magic circles).
 - Put textures in `Assets/VFX/<EffectId>/Textures/` named `T_<EffectId>_<Name>.png`.
+- Previews go to `Assets/VFX/<EffectId>/Design/previews/`; any one-off script you write
+  (e.g. a custom shape the generator lacks) goes to `Assets/VFX/<EffectId>/Design/tools/`,
+  so the next round can rerun it with changed numbers.
+- Keep every shape inside radius ~0.9 of the texture (5% margin): anything reaching the
+  border is visibly cut off on a particle quad. The generator warns when a mask touches it.
 
 ## Starter textures (use them first)
 
@@ -33,21 +38,29 @@ C# fallback below instead of blocking.
 | Command | Makes | Useful options |
 |---|---|---|
 | `glow` | soft glow with core | `--core 0.25 --falloff 2 --halo 0.75` |
-| `ring` | ring / shockwave band | `--radius 0.7 --width 0.12 --breaks 5 --gap 0.15` (broken, stylized) |
-| `star` | N-point sparkle | `--points 4 --inner 0.08 --glow 0.5` |
+| `ring` | ring / shockwave band | `--radius 0.7 --width 0.12 --softness 0.02 --breaks 5 --gap 0.15`; keep radius + width/2 + softness ≤ 0.9 |
+| `star` | N-point sparkle / flower | `--points 4 --inner 0.3 --sharp 2 --glow 0.3` (see below) |
 | `streak` | elongated spark (for stretched billboards) | `--aspect 4` |
 | `slash` | crescent arc for sword trails / swipes | `--arc 150 --width 0.18` |
 | `noise` | tileable fractal value noise | `--cells 4 --octaves 5 --seed 7` |
 | `smoke` | stylized puff flipbook (grow → erode) | `--frames 16 --grid 4` (use with `texture_sheet_animation.num_tiles_x/y` = 4) |
 | `svg` | rasterize an SVG you wrote | `--svg shape.svg` (needs `cairosvg`) |
-| `preview` | tinted contact sheet of textures | `preview out.png a.png b.png ...` |
+| `preview` | alpha row + tinted on dark + tinted on light | `preview out.png a.png b.png ... --tint 40C8FF` |
 
 All shape commands take `--size`, `--seed`, and `--steps N` (posterize into N flat bands,
-2–4 for cel looks).
+2–4 for cel looks). Posterized textures are rendered at 4× and downsampled, so the band
+edges stay anti-aliased.
 
-**Always run `preview` and look at the image before handing textures over.** Check for
-shapes touching the texture edge (visible cut-off on particles), mushy edges when you
-wanted crisp ones, and flipbook frames that barely change.
+`star` outline: tips at `--outer` (default 0.9), valleys at `--inner` × outer.
+`--sharp` shapes the rays: 3 = thin concave needles (glints), 2 = classic sparkle,
+1 = straight-edged star, 0.6 with `--inner 0.55` = puffy flower/cartoon star.
+`--rotation` turns it (0 = a tip points up), `--glow 0` removes the halo.
+
+**Always run `preview` and look at the preview image before handing textures over.** Opening a
+mask itself shows a blank white square (the RGB is white; the shape is only in alpha). In the
+preview check the silhouette (alpha row), edges touching the border, mushy edges when you
+wanted crisp ones, flipbook frames that barely change, and whether the shape still reads on
+the light row.
 
 ## SVG for custom shapes
 
@@ -69,6 +82,12 @@ per call.
 After writing a PNG under `Assets/`, set its import settings with MCP for Unity
 (`manage_texture` → `set_import_settings`) or by editing the `.meta` through the asset
 tools:
-- Masks: sRGB on, **Alpha Is Transparency on**, wrap **Clamp**, mipmaps on.
-- Noise/data: **sRGB off**, wrap **Repeat**, Alpha Is Transparency off.
-- Flipbooks: wrap Clamp; record the grid (e.g. 4x4) in the manifest for the Particle Artist.
+- Masks: sRGB on, alpha source **from input**, **Alpha Is Transparency on**, wrap **Clamp**,
+  mipmaps on (particles shrink; without mipmaps small ones shimmer).
+- Noise/data: **sRGB off**, wrap **Repeat**, Alpha Is Transparency off, mipmaps on.
+- Flipbooks: wrap Clamp, mipmaps on; record the grid (e.g. 4x4) in the manifest for the
+  Particle Artist.
+
+Use the key names from the tool's own parameter description (for example MCP for Unity
+takes `alpha_source: "from_input"`), not guessed ones, and confirm by reading the texture's
+`.meta` afterwards: unknown keys can be ignored silently.

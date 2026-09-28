@@ -16,7 +16,7 @@ echo "== texture generator (vfxtex.py)"
 if python3 -c "import numpy, PIL" 2>/dev/null; then
   out=$(mktemp -d)
   T=../plugins/unity-vfx-designer/skills/texture-authoring/scripts/vfxtex.py
-  for cmd in "glow $out/glow.png" "ring $out/ring.png --breaks 5" "star $out/star.png --points 6" \
+  for cmd in "glow $out/glow.png" "ring $out/ring.png --breaks 5" "star $out/star.png --points 6 --steps 3" \
              "streak $out/streak.png" "slash $out/slash.png" "noise $out/noise.png --size 64" \
              "smoke $out/smoke.png --size 64 --steps 3"; do
     python3 "$T" $cmd > /dev/null

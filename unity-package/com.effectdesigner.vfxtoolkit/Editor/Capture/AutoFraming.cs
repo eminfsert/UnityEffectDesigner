@@ -41,10 +41,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         const float EdgeFraction = 0.01f;
 
         public static void Refine(CaptureRig rig, EffectSampler sampler, IReadOnlyList<CaptureView> views,
-            float[] times, Color background, ViewFraming[] framings, List<string> warnings)
+            float[] times, Color background, ViewFraming[] framings, List<string> warnings, bool[] fixedViews = null)
         {
             int size = rig.FrameSize;
-            var done = new bool[views.Count];
+            var done = fixedViews != null ? (bool[])fixedViews.Clone() : new bool[views.Count];
 
             for (int iteration = 0; iteration < MaxIterations; iteration++)
             {

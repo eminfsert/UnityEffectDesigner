@@ -8,15 +8,19 @@ Pillow (pip install numpy pillow). SVG rasterization additionally needs cairosvg
 Examples
   vfxtex.py glow   out.png --size 128 --core 0.25 --falloff 2
   vfxtex.py ring   out.png --radius 0.7 --width 0.12 --breaks 5 --seed 3
-  vfxtex.py star   out.png --points 4 --inner 0.08 --glow 0.5
+  vfxtex.py star   out.png --points 4 --inner 0.3 --sharp 2 --glow 0.3
   vfxtex.py streak out.png --size 256 --aspect 4
   vfxtex.py slash  out.png --arc 150 --width 0.18
   vfxtex.py noise  out.png --size 256 --octaves 5 --cells 4 --seed 7
   vfxtex.py smoke  out.png --frames 16 --grid 4 --steps 3 --seed 2
   vfxtex.py svg    out.png --svg shape.svg --size 256
-  vfxtex.py preview out.png a.png b.png ...        (tinted contact sheet to look at)
+  vfxtex.py preview out.png a.png b.png ... --tint 40C8FF   (look at this, not the mask itself)
 
-Every command prints the written path; open it and look before handing it over.
+Every command prints the written path. Masks are white RGB, so opened directly they look like
+blank white squares: always look at a preview (alpha row, tinted on dark, tinted on light).
+--steps N posterizes into flat cel bands; it renders at 4x and downsamples, so band edges stay
+anti-aliased. Keep shapes inside radius ~0.9 so nothing is cut at the quad border (a warning is
+printed if a mask touches the border).
 """
 import argparse
 import math
@@ -96,7 +100,7 @@ def glow(a):
     r = np.sqrt(x * x + y * y)
     halo = (1 - smoothstep(0.0, 1.0, r)) ** a.falloff
     core = 1 - smoothstep(0.0, max(a.core, 1e-3), r)
-    return posterize(np.maximum(halo * a.halo, core), a.steps)
+    return np.maximum(halo * a.halo, core)
 
 
 def ring(a):
@@ -113,29 +117,30 @@ def ring(a):
         gap = a.gap
         keep = smoothstep(offsets[seg], offsets[seg] + 0.03, frac) * (1 - smoothstep(1 - gap - 0.03, 1 - gap, frac))
         band *= keep
-    return posterize(band, a.steps)
+    return band
 
 
 def star(a):
+    """Polar star: the outline swings between the tips (radius --outer) and the valleys between
+    them (--inner, as a fraction of --outer). --sharp > 1 makes concave, needle-like rays;
+    1 roughly straight edges; < 1 a puffy, rounded star."""
     x, y = grid(a.size)
     r = np.sqrt(x * x + y * y)
-    ang = np.arctan2(y, x)
+    ang = np.arctan2(y, x) + math.radians(a.rotation) + math.pi / 2  # first tip points up
     k = a.points
-    # Distance to the nearest ray, tapering toward the tip.
-    phase = np.abs(((ang * k / (2 * math.pi)) % 1.0) - 0.5) * 2  # 1 on a ray, 0 between rays
-    ray_width = (a.inner + 0.002) * (1 - np.clip(r, 0, 1)) ** 1.5
-    across = (1 - phase) * r * math.pi / k * 2  # approx. perpendicular distance
-    rays = (1 - smoothstep(0, ray_width + 1e-4, across)) * (1 - smoothstep(0.6, 1.0, r))
-    core = 1 - smoothstep(0.0, 0.2, r)
-    halo = (1 - smoothstep(0.0, 0.6, r)) ** 2 * a.glow
-    return posterize(np.clip(np.maximum.reduce([rays, core, halo]), 0, 1), a.steps)
+    phase = np.abs(((ang * k / (2 * math.pi)) % 1.0) - 0.5) * 2  # 1 on a tip, 0 midway between tips
+    inner = np.clip(a.inner, 0.02, 1.0)
+    outline = a.outer * (inner + (1 - inner) * phase ** a.sharp)
+    shape = 1 - smoothstep(outline - a.softness, outline + a.softness, r)
+    halo = (1 - smoothstep(0.0, a.outer, r)) ** 2 * a.glow
+    return np.clip(np.maximum(shape, halo), 0, 1)
 
 
 def streak(a):
     x, y = grid(a.size, a.aspect)
     along = 1 - smoothstep(0.3, 1.0, np.abs(x))
     across = 1 - smoothstep(0.0, 0.9 * (1 - np.abs(x) ** 2) + 0.05, np.abs(y))
-    return posterize(along * across, a.steps)
+    return along * across
 
 
 def slash(a):
@@ -146,7 +151,7 @@ def slash(a):
     inside = (ang > 90 - a.arc / 2) & (ang < 90 + a.arc / 2)
     width = a.width * np.sin(t * math.pi) ** 0.7  # thick middle, sharp tips
     band = (1 - smoothstep(0, width + 1e-4, np.abs(r - 0.75))) * inside
-    return posterize(band, a.steps)
+    return band
 
 
 def noise(a):
@@ -171,7 +176,7 @@ def smoke(a):
         # Erodes from the thin parts inward over the second half of the life.
         erosion = smoothstep(0.25, 1.0, t) * 0.95
         alpha = smoothstep(erosion, erosion + 0.12, density)
-        frames.append(posterize(alpha, a.steps))
+        frames.append(alpha)
     g = a.grid
     atlas = np.zeros((size * g, size * g))
     for i, f in enumerate(frames[: g * g]):
@@ -195,18 +200,53 @@ def svg(a):
 
 
 def preview(a):
-    tint = np.array([255, 180, 60, 255], float)
-    tiles = []
+    """Three rows per texture: raw alpha (gray), tinted on dark, tinted on light (alpha blended),
+    so shape, edges and readability on bright ground can all be judged from one image."""
+    tint = np.array([int(a.tint.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4)], float) / 255
+    dark = np.array([22, 22, 28], float) / 255
+    light = np.array([200, 204, 210], float) / 255
+    tile = a.tile
+    columns = []
     for p in a.inputs:
-        im = Image.open(p).convert("RGBA").resize((160, 160))
+        im = Image.open(p).convert("RGBA")
+        w, h = im.size
+        im = im.resize((tile, max(1, round(tile * h / w))), Image.LANCZOS)
         arr = np.asarray(im).astype(float) / 255
         alpha = arr[..., 3:4]
-        bg = np.array([22, 22, 28], float) / 255
-        rgb = bg * (1 - alpha) + (tint[:3] / 255) * arr[..., :3] * alpha
-        tiles.append(np.round(rgb * 255).astype(np.uint8))
-    sheet = np.concatenate(tiles, axis=1) if tiles else np.zeros((160, 160, 3), np.uint8)
-    Image.fromarray(sheet, "RGB").save(a.out)
+        color = tint * arr[..., :3]
+        rows = [np.repeat(alpha, 3, axis=2),
+                dark * (1 - alpha) + color * alpha,
+                light * (1 - alpha) + color * alpha]
+        gap = np.ones((4, tile, 3)) * 0.5
+        columns.append(np.concatenate([rows[0], gap, rows[1], gap, rows[2]], axis=0))
+    height = max(c.shape[0] for c in columns)
+    columns = [np.pad(c, ((0, height - c.shape[0]), (0, 4), (0, 0)), constant_values=0.5) for c in columns]
+    sheet = np.concatenate(columns, axis=1)
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(np.round(np.clip(sheet, 0, 1) * 255).astype(np.uint8), "RGB").save(a.out)
     print(a.out)
+
+
+def render(fn, a, supersample=4):
+    """Runs a shape; with --steps it renders at 4x, posterizes, then box-downsamples so the flat
+    bands keep smooth (anti-aliased) edges instead of stair-stepped ones."""
+    if a.steps < 2:
+        return fn(a)
+    size = a.size
+    a.size = size * supersample
+    big = posterize(fn(a), a.steps)
+    a.size = size
+    h, w = big.shape
+    im = Image.fromarray(big.astype(np.float32), "F").resize((round(w / supersample), round(h / supersample)), Image.BOX)
+    return np.asarray(im)
+
+
+def warn_if_cut(alpha, name):
+    border = np.concatenate([alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1]])
+    if border.max() > 8 / 255:
+        print(f"warning: {name} touches the texture border and will look cut off on a particle; "
+              "keep the shape inside radius ~0.9 (smaller --radius/--outer/--width, or less --softness).",
+              file=sys.stderr)
 
 
 # ----------------------------------------------------------------- cli
@@ -226,11 +266,17 @@ def main(argv=None):
     sp.add_argument("--halo", type=float, default=0.75)
     sp = sub.add_parser("ring"); common(sp)
     sp.add_argument("--radius", type=float, default=0.7); sp.add_argument("--width", type=float, default=0.12)
-    sp.add_argument("--softness", type=float, default=0.02); sp.add_argument("--breaks", type=int, default=0)
+    sp.add_argument("--softness", type=float, default=0.02, help="edge blur on each side of the band")
+    sp.add_argument("--breaks", type=int, default=0)
     sp.add_argument("--gap", type=float, default=0.15)
     sp = sub.add_parser("star"); common(sp)
-    sp.add_argument("--points", type=int, default=4); sp.add_argument("--inner", type=float, default=0.08)
-    sp.add_argument("--glow", type=float, default=0.5)
+    sp.add_argument("--points", type=int, default=4)
+    sp.add_argument("--inner", type=float, default=0.3, help="valley radius as a fraction of --outer (0.1 needles, 0.6 chunky)")
+    sp.add_argument("--outer", type=float, default=0.9, help="tip radius; keep <= 0.9")
+    sp.add_argument("--sharp", type=float, default=2.0, help=">1 concave needle rays, 1 straight edges, <1 puffy")
+    sp.add_argument("--softness", type=float, default=0.012)
+    sp.add_argument("--rotation", type=float, default=0.0, help="degrees; 0 = a tip points up")
+    sp.add_argument("--glow", type=float, default=0.3, help="soft halo strength behind the star")
     sp = sub.add_parser("streak"); common(sp, 128)
     sp.add_argument("--aspect", type=float, default=4.0)
     sp = sub.add_parser("slash"); common(sp)
@@ -243,13 +289,18 @@ def main(argv=None):
     sp.add_argument("--svg", type=Path, required=True)
     sp = sub.add_parser("preview")
     sp.add_argument("out", type=Path); sp.add_argument("inputs", nargs="+", type=Path)
+    sp.add_argument("--tint", default="FFB43C", help="hex color the masks are tinted with")
+    sp.add_argument("--tile", type=int, default=256, help="tile width in pixels")
 
     a = p.parse_args(argv)
     if a.cmd == "preview":
         return preview(a)
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    shape = {"glow": glow, "ring": ring, "star": star, "streak": streak, "slash": slash,
-             "noise": noise, "smoke": smoke, "svg": svg}[a.cmd](a)
+    fn = {"glow": glow, "ring": ring, "star": star, "streak": streak, "slash": slash,
+          "noise": noise, "smoke": smoke, "svg": svg}[a.cmd]
+    shape = render(fn, a)
+    if a.cmd not in ("noise", "smoke", "streak"):
+        warn_if_cut(shape, a.cmd)
     (save_gray if a.cmd == "noise" else save_mask)(shape, a.out)
 
 

@@ -41,6 +41,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Shaders
 
     public sealed class ShaderReportResult
     {
+        public string toolkitVersion = ToolkitInfo.Version;
         public int checkedShaders;
         public int shadersWithErrors;
         public int contractViolations;
