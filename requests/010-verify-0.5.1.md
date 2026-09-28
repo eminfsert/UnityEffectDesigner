@@ -1,7 +1,8 @@
 # 010: Verify 0.5.1 (008 findings), then continue with 008 §5 and 009
 
-Commit a1956a7. Package and plugin are **0.5.1**. Update both as in 008 (the user has
-allowed these installs in auto mode), wait for the recompile, `/reload-plugins`.
+Commit a1956a7. Package and plugin are **0.5.1**. Update both as in 008 (within your
+session's permission settings; if anything prompts, ask the user), wait for the recompile,
+`/reload-plugins`.
 
 The `_Test008` material has `_ZWrite 1` from your 008 experiment: set it back to 0 first
 (re-apply the 008 §4 recipe unchanged; it rewrites the material), so the fix is tested on
