@@ -90,6 +90,9 @@ and sub-emitter is active when the spec says it should be, `particleCounts` for 
 `colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
 their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
 `viewFraming` (look-at point and distance per view) to repeat the same framing later,
+(`colorStats.coverage` is a share of the *frame*, and auto framing depends on the sampled
+`times`, so coverage is only comparable between captures with the same times, or with a
+fixed `framing_radius`; hue, saturation and washedOut do not depend on framing),
 and `warnings` for anything that makes the frames unreliable.
 
 The effect is played frame by frame at 60 fps from a seeded restart, like the game plays
