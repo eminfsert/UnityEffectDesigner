@@ -291,7 +291,8 @@ static class Program
         var same = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult();
         var list = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.3f } };
         same.colorStatsByBackground["dark"] = list;
-        same.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.3f } };
+        // A sliver of sky makes the backgrounds differ by ~0.001: still "the same".
+        same.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.301f } };
         EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(same);
 
         bool ok = dome.hue > 20f && dome.hue < 45f && inkStats.valueContrast > 0.95f && glowStats.valueContrast < 0.05f

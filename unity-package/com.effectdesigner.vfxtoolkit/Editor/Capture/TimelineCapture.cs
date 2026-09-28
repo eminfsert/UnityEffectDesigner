@@ -457,7 +457,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             // A ground plane can fill the whole frame (views looking down): every background then renders
             // the same, and comparing them says nothing. valueContrast against the ground is the measure then.
             var lists = result.colorStatsByBackground.Values.ToList();
-            bool identical = lists.All(l => l.Count == lists[0].Count && l.Zip(lists[0], (x, y) => Mathf.Abs(x.coverage - y.coverage) < 1e-4f).All(same => same));
+            // Relative tolerance: a thin strip of sky at the frame's edge still differs slightly per background.
+            bool identical = lists.All(l => l.Count == lists[0].Count && l.Zip(lists[0], (x, y) =>
+                Mathf.Abs(x.coverage - y.coverage) <= Mathf.Max(1e-4f, 0.02f * Mathf.Max(x.coverage, y.coverage))).All(same => same));
             if (identical)
             {
                 result.notes.Add("All backgrounds rendered the same in the first view (the ground fills the frame): readability is in valueContrast against the ground, not in background coverage ratios.");

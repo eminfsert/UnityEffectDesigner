@@ -25,7 +25,10 @@ presets: every layer still gets the brief's shapes, colors and timing.
 | embers | aftermath | 0.30–1.50 | tiny yellow specks, slow, fade |
 
 Capture on the game's ground color (`ground`) and a light background: most layers are
-alpha-blended and readable by value, not glow.
+alpha-blended and readable by value, not glow. A deep orange has about the grass's
+brightness (measured: `valueContrast` 0.00 for an `#E07A35` dome on `#4E8A3A`), so keep the
+cooled shell light (peach `#FCCB8C`-like, as the reference does) while it is large, and
+let the ink strokes and dark smoke carry the value contrast once it breaks up.
 
 ## burst / pickup (reward, collect, small pop; archetype `burst` or `pickup`)
 flash (small) → radial sparkle stars (4–8, rotating) → ring pop (`pop` curve) → glints

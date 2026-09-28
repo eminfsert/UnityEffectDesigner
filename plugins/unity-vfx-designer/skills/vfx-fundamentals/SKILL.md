@@ -40,6 +40,12 @@ user-invocable: false
 
 ## Readability
 
+- **Hue is not value.** A saturated orange on green grass can have the same brightness as
+  the grass (measured: an orange dome on `#4E8A3A` had `valueContrast` 0.00); it reads by
+  hue only and disappears at a distance or for color-blind players. Something must carry
+  value contrast in every phase: a white-hot core early, dark ink strokes and dark smoke
+  later, or a dark outline/companion.
+
 - Check the effect on a **dark and a light** background. Additive layers vanish on bright
   scenes; pair them with an alpha-blended darker layer when the game has daylight scenes.
 - The effect must not hide gameplay (target, character) longer than its impact beat.
