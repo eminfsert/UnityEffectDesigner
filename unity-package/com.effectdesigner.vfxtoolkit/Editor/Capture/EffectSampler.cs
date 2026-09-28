@@ -22,11 +22,18 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public static readonly int CaptureTimeId = Shader.PropertyToID("_VFXToolkitTime");
         public static readonly int CaptureActiveId = Shader.PropertyToID("_VFXToolkitCapture");
 
-        /// <summary>Simulation frame length. Time 0 is shown after the first frame.</summary>
+        /// <summary>Simulation frame length.</summary>
         public const float FrameStep = 1f / 60f;
 
-        /// <summary>Simulated time of the current state; negative before the first sample.</summary>
-        float _current = -1f;
+        /// <summary>
+        /// Simulated frames needed to show time <paramref name="time"/>: t = 0 is the first rendered
+        /// frame (one step simulated, as in the game), and every 1/60 s after it adds a frame.
+        /// Times rounding to the same frame show the same state.
+        /// </summary>
+        public static int FrameIndex(float time) => Mathf.Max(0, Mathf.RoundToInt(time / FrameStep)) + 1;
+
+        /// <summary>Frames simulated for the current state; negative before the first sample.</summary>
+        int _frames = -1;
 
         readonly List<ParticleSystem> _rootParticleSystems = new List<ParticleSystem>();
         readonly ParticleSystem[] _allParticleSystems;
@@ -43,6 +50,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             _allParticleSystems = root.GetComponentsInChildren<ParticleSystem>(true);
             _visualEffects = root.GetComponentsInChildren<VisualEffect>(true);
             _renderers = root.GetComponentsInChildren<Renderer>(true);
+            _maxParticleSize = new float[_allParticleSystems.Length];
 
             foreach (var behaviour in root.GetComponentsInChildren<MonoBehaviour>(true))
             {
@@ -90,18 +98,18 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             foreach (var sampleable in _sampleables)
                 sampleable.SampleAt(time);
 
-            float target = Mathf.Max(time, FrameStep);
-            if (_current < 0f || target < _current - FrameStep * 0.5f)
+            int target = FrameIndex(time);
+            if (_frames < 0 || target < _frames)
                 Restart();
 
             // Children (including sub-emitters) are simulated by their root system.
-            while (_current + FrameStep * 0.5f < target)
+            while (_frames < target)
             {
                 foreach (var ps in _rootParticleSystems)
                     ps.Simulate(FrameStep, true, false, false);
                 foreach (var vfx in _visualEffects)
                     vfx.Simulate(FrameStep, 1);
-                _current += FrameStep;
+                _frames++;
             }
         }
 
@@ -112,7 +120,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 ps.Simulate(0f, true, true, false);
             foreach (var vfx in _visualEffects)
                 vfx.Reinit();
-            _current = 0f;
+            _frames = 0;
         }
 
         /// <summary>Label per particle system / visual effect, in <see cref="CurrentCountsPerSystem"/> order.</summary>
@@ -221,8 +229,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             bounds = default;
             bool any = false;
 
-            foreach (var ps in _allParticleSystems)
+            for (int p = 0; p < _allParticleSystems.Length; p++)
             {
+                var ps = _allParticleSystems[p];
                 if (!ps.gameObject.activeInHierarchy || ps.particleCount == 0)
                     continue;
                 var renderer = ps.GetComponent<ParticleSystemRenderer>();
@@ -236,7 +245,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 for (int i = 0; i < count; i++)
                 {
                     Vector3 size = _particleBuffer[i].GetCurrentSize3D(ps);
-                    float extent = Mathf.Max(size.x, Mathf.Max(size.y, size.z)) * 0.5f;
+                    float largest = Mathf.Max(size.x, Mathf.Max(size.y, size.z));
+                    float extent = largest * 0.5f;
+                    _maxParticleSize[p] = Mathf.Max(_maxParticleSize[p], largest * MaxScale(ps.transform));
                     var b = new Bounds(toWorld.MultiplyPoint3x4(_particleBuffer[i].position), Vector3.one * (extent * 2f));
                     Encapsulate(ref bounds, ref any, b);
                 }
@@ -254,6 +265,52 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         }
 
         ParticleSystem.Particle[] _particleBuffer = new ParticleSystem.Particle[256];
+        float[] _maxParticleSize;
+
+        static float MaxScale(Transform t)
+        {
+            var s = t.lossyScale;
+            return Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
+        }
+
+        /// <summary>
+        /// Lifts every particle renderer's maxParticleSize (a share of the screen height, 0.5 by default)
+        /// in the capture copy. Capture cameras sit a few meters away, far closer than a game camera, so
+        /// large particles would be clamped there and their size animation hidden.
+        /// </summary>
+        public void LiftMaxParticleSize()
+        {
+            _originalMaxParticleSize = new float[_allParticleSystems.Length];
+            for (int p = 0; p < _allParticleSystems.Length; p++)
+            {
+                var r = _allParticleSystems[p].GetComponent<ParticleSystemRenderer>();
+                _originalMaxParticleSize[p] = r != null ? r.maxParticleSize : float.PositiveInfinity;
+                if (r != null)
+                    r.maxParticleSize = Mathf.Max(r.maxParticleSize, LiftedMaxParticleSize);
+            }
+        }
+
+        float[] _originalMaxParticleSize;
+
+        /// <summary>
+        /// Systems whose largest particle seen by <see cref="TryGetVisibleBounds"/> would have been clamped
+        /// by their own maxParticleSize with the camera at <paramref name="distance"/>:
+        /// (index into <see cref="SystemLabels"/>, particle size in m, original limit).
+        /// </summary>
+        public List<(int system, float size, float limit)> ClampedAt(float distance, float tanHalfFov)
+        {
+            var clamped = new List<(int, float, float)>();
+            if (_originalMaxParticleSize == null)
+                return clamped;
+            float screenHeight = 2f * Mathf.Max(0.01f, distance) * tanHalfFov;
+            for (int p = 0; p < _allParticleSystems.Length; p++)
+                if (_maxParticleSize[p] / screenHeight > _originalMaxParticleSize[p])
+                    clamped.Add((p, _maxParticleSize[p], _originalMaxParticleSize[p]));
+            return clamped;
+        }
+
+        /// <summary>maxParticleSize used in captures: larger than any particle a capture can frame.</summary>
+        public const float LiftedMaxParticleSize = 10f;
 
         static Matrix4x4 SimulationToWorld(ParticleSystem ps)
         {

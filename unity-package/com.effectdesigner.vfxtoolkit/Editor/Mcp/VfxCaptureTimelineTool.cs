@@ -53,6 +53,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Also render each system alone (first view, first background) and return its colors in systemColorStats. Default true; costs one extra render per system per time.", Required = false)]
             public bool? system_color_stats { get; set; }
 
+            [ToolParameter("With system_color_stats: also save each system-alone render as a PNG (systemFrames), to compare a layer alone with the composite frame. Default false.", Required = false)]
+            public bool? system_frames { get; set; }
+
             [ToolParameter("Vertical field of view in degrees. Default 35.", Required = false)]
             public float? fov { get; set; }
 
@@ -76,11 +79,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
         {
             var request = CaptureRequest.FromJson(@params, out string error);
             if (request == null)
-                return new ErrorResponse(error);
+                return new ErrorResponse(error, new { toolkitVersion = ToolkitInfo.Version });
 
             var result = TimelineCapture.Run(request, out error);
             if (result == null)
-                return new ErrorResponse(error);
+                return new ErrorResponse(error, new { toolkitVersion = ToolkitInfo.Version });
 
             return new SuccessResponse(
                 $"Captured {result.frames.Count} frames of '{result.target}'. Contact sheet: {result.contactSheet}",

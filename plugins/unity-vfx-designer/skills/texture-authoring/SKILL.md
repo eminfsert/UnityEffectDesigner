@@ -52,8 +52,9 @@ All shape commands take `--size`, `--seed`, and `--steps N` (posterize into N fl
 edges stay anti-aliased.
 
 `star` outline: tips at `--outer` (default 0.9), valleys at `--inner` × outer.
-`--sharp` shapes the rays: 3 = thin concave needles (glints), 2 = classic sparkle,
-1 = straight-edged star, 0.6 with `--inner 0.55` = puffy flower/cartoon star.
+`--sharp` shapes the rays: 3 with a low `--inner` = thin lens/leaf-shaped rays meeting at
+the center (glints), 2 = classic sparkle with concave sides, 1 = straight-edged star,
+0.6 with `--inner 0.55` = puffy flower/cartoon star.
 `--rotation` turns it (0 = a tip points up), `--glow 0` removes the halo.
 
 **Always run `preview` and look at the preview image before handing textures over.** Opening a

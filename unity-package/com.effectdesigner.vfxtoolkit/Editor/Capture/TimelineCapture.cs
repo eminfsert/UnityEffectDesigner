@@ -56,6 +56,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// Shows each layer's own hue and saturation over its life, without the other layers mixing in.
         /// </summary>
         public Dictionary<string, List<FrameColorStats>> systemColorStats = new Dictionary<string, List<FrameColorStats>>();
+        /// <summary>With system_frames: the PNG of each system rendered alone per time (null where it had no particles).</summary>
+        public Dictionary<string, List<string>> systemFrames = new Dictionary<string, List<string>>();
         /// <summary>Tonemapping and bloom in effect during the capture. Colors are only comparable to the game under the same settings.</summary>
         public PostProcessInfo postProcessing;
         /// <summary>Problems that likely need a fix.</summary>
@@ -92,6 +94,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             if (error != null)
                 return null;
 
+            var merged = MergeSameFrameTimes(request);
+            result.times = request.Times;
+            if (merged != null)
+                result.notes.Add(merged);
+
             string folder = PrepareOutputFolder(request, source.name);
             result.outputFolder = folder;
 
@@ -100,6 +107,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 using (var rig = new CaptureRig(source, request.FrameSize, request.FieldOfView, request.AddLight, request.PostProcessing, request.VolumeProfile))
                 {
                     var sampler = new EffectSampler(rig.Effect, request.Seed);
+                    sampler.LiftMaxParticleSize();
                     result.particleSystems = sampler.ParticleSystemCount;
                     result.visualEffects = sampler.VisualEffectCount;
                     result.timeSampleables = sampler.SampleableCount;
@@ -182,6 +190,17 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                         result.viewFraming.Add(new ViewFramingInfo { view = request.Views[v].Name, lookAt = new[] { c.x, c.y, c.z }, distance = framings[v].Distance });
                     }
 
+                    // Report where the effect's own maxParticleSize would have clamped particles at this
+                    // camera distance (it was lifted for the capture), and from which distance the game would.
+                    float closest = framings.Min(f => f.Distance);
+                    foreach (var (system, size, limit) in sampler.ClampedAt(closest, rig.TanHalfFov))
+                    {
+                        float gameClampDistance = size / (2f * rig.TanHalfFov * limit);
+                        result.notes.Add(
+                            FormattableString.Invariant($"'{labels[system]}': particles up to {size:0.##} m exceed its maxParticleSize {limit:0.##} (share of screen height) at the capture distance {closest:0.#} m; ") +
+                            FormattableString.Invariant($"the limit was lifted for this capture. With a {request.FieldOfView:0}° camera the game clamps them when closer than {gameClampDistance:0.#} m."));
+                    }
+
                     foreach (var view in request.Views)
                         foreach (var bg in request.Backgrounds)
                             result.rows.Add($"{view.Name}/{bg.Name}");
@@ -202,8 +221,13 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     if (drawnSystems < 2)
                         systemRenderers.Clear();
                     for (int i = 0; i < systemRenderers.Count; i++)
-                        if (systemRenderers[i] != null)
-                            result.systemColorStats[labels[i]] = new List<FrameColorStats>();
+                    {
+                        if (systemRenderers[i] == null)
+                            continue;
+                        result.systemColorStats[labels[i]] = new List<FrameColorStats>();
+                        if (request.SystemFrames)
+                            result.systemFrames[labels[i]] = new List<string>();
+                    }
                     result.postProcessing = rig.DescribePostProcessing();
                     result.postProcessing.volumeProfileSource = profileSource;
                     if (profileSource == null)
@@ -249,16 +273,27 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                 if (systemRenderers[i] == null)
                                     continue;
                                 FrameColorStats stats;
+                                string alonePath = null;
                                 if (result.systemParticleCounts[labels[i]][column] == 0 && systemRenderers[i] is ParticleSystemRenderer)
                                 {
                                     stats = new FrameColorStats { time = t, hue = -1f };
                                 }
                                 else
                                 {
+                                    Texture2D alone;
                                     using (sampler.Isolate(systemRenderers[i]))
-                                        stats = ColorStats.Measure(rig.Render(request.Backgrounds[0].Color).GetPixels32(), statsReferences[0], t);
+                                        alone = rig.Render(request.Backgrounds[0].Color);
+                                    stats = ColorStats.Measure(alone.GetPixels32(), statsReferences[0], t);
+                                    if (request.SystemFrames)
+                                    {
+                                        alonePath = Path.Combine(folder, "systems", $"{Sanitize(labels[i])}_t{t.ToString("0.000", CultureInfo.InvariantCulture)}.png");
+                                        Directory.CreateDirectory(Path.GetDirectoryName(alonePath));
+                                        File.WriteAllBytes(alonePath, alone.EncodeToPNG());
+                                    }
                                 }
                                 result.systemColorStats[labels[i]].Add(stats);
+                                if (request.SystemFrames)
+                                    result.systemFrames[labels[i]].Add(alonePath);
                             }
                         }
                     }
@@ -284,6 +319,34 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Times that round to the same 60 fps frame show the same state (t = 0 is the first frame,
+        /// 0.017 the second, 0.008 the first again), so they are captured once, under the first time.
+        /// Returns a note when any were merged.
+        /// </summary>
+        internal static string MergeSameFrameTimes(CaptureRequest request)
+        {
+            var kept = new List<float>();
+            var merged = new List<string>();
+            int lastFrame = -1;
+            foreach (float t in request.Times)
+            {
+                int frame = EffectSampler.FrameIndex(t);
+                if (frame == lastFrame)
+                {
+                    merged.Add(FormattableString.Invariant($"{t:0.###} (same frame as {kept[kept.Count - 1]:0.###})"));
+                    continue;
+                }
+                kept.Add(t);
+                lastFrame = frame;
+            }
+            if (merged.Count == 0)
+                return null;
+            request.Times = kept.ToArray();
+            return "Times are played at 60 fps (t = 0 is the first frame, each 1/60 s adds one); these fell on an already captured frame and were skipped: " +
+                   string.Join(", ", merged) + ". Space beat samples at least 0.017 s apart.";
         }
 
         const string ProjectSettingsSource = "project settings (ProjectSettings/EffectDesigner.json)";

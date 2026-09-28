@@ -32,8 +32,9 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.4.0** (`colorStatsByBackground`, `systemColorStats`,
-   `view_framing`, off-scene `save_prefab`). A missing field means an older toolkit: tell
+   needs **toolkit ≥ 0.4.2** (`colorStatsByBackground`, `systemColorStats`,
+   `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging).
+   Error responses carry it too (in their data). A missing field means an older toolkit: tell
    the user to update the package (Package Manager → the package → Update, or remove the
    `com.effectdesigner.vfxtoolkit` entry from `Packages/packages-lock.json` so the git
    dependency re-resolves), and work around the missing features until then.
@@ -93,7 +94,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | Parameter | Default | Notes |
 |---|---|---|
 | `target` | required | Prefab path (`Assets/...prefab`), scene path, name, or instance id |
-| `times` | `[0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds; 0 is the first frame (1/60 s). Put extra samples around the spec's beats (anticipation, impact, dissipation) and across the whole life of every layer, including sub-emitters, so nothing happens only between samples |
+| `times` | `[0,0.05,0.1,0.2,0.35,0.5,0.75,1,1.5]` | Seconds after the first frame: 0 is the first rendered frame, 0.017 the second, each 1/60 s one more. Times that round to the same frame are captured once (a note lists them), so space samples ≥ 0.017 s apart: "beat + 1 frame" is beat + 0.017, "+ 2 frames" beat + 0.034. Put extra samples around the spec's beats (anticipation, impact, dissipation) and across the whole life of every layer, including sub-emitters, so nothing happens only between samples |
 | `views` | `["three_quarter"]` | `front, back, side, top, three_quarter, low` or `{name, azimuth, elevation}` |
 | `backgrounds` | `["dark"]` | `dark, mid, light` or hex. Use `["dark","light"]` for readability checks |
 | `frame_size` | 320 | 64–1024 |
@@ -101,7 +102,8 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `auto_frame` | true | Each view is re-framed on the pixels the effect actually covers over all times (centred, ~80% of the frame) |
 | `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
 | `view_framing` | none | A previous result's `viewFraming` (`[{view, lookAt, distance}]`): those views reuse that camera placement exactly and skip auto framing. Use it every round after the first so iterations line up |
-| `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time; turn off for quick looks |
+| `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time (~10% capture time for two systems); turn off for quick looks |
+| `system_frames` | false | Also saves those system-alone renders as PNGs (`systemFrames`), to see why a layer alone and the composite measure differently |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it, and `"none"` renders with the pipeline defaults only (for before/after comparisons) |
 | `label` | effect name | Name the iteration, e.g. `arcane_nova_iter2` |
@@ -126,6 +128,11 @@ sub-emitters, no game volume profile), `notes` for information that needs no act
 
 The effect is played frame by frame at 60 fps from a seeded restart, like the game plays
 it: t = 0 is the first frame, times are rounded to 1/60 s, sub-emitters fire.
+
+Capture cameras are much closer than a game camera, so the capture copy lifts every
+particle renderer's `maxParticleSize` (share of screen height, 0.5 by default) to show the
+real size animation of large particles. When a layer would have been clamped, a note says
+so, with the camera distance below which the game would clamp it too.
 
 Limits: at most 24 times and 192 frames per call. VFX Graph stepping in edit mode is
 experimental. If VFX Graph frames look empty or identical, say so and verify in Play

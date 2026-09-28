@@ -71,6 +71,12 @@ bloom, which can differ from the material's tint (a saturated gold whose red cha
 the ceiling renders yellow). Capture every round with the previous round's `viewFraming`
 passed back as `view_framing`, so sizes are compared at identical framing.
 
+**A layer alone and the composite differ.** Overlapping layers (a dark companion under
+it, bloom from brighter neighbours) shift the composite's hue: a ring measured 28–35°
+alone and ~48° in the full frame. Judge each layer's palette color on its own
+(`systemColorStats`), and the overall read on the composite (`colorStats`). When the two
+disagree enough to matter, capture with `system_frames: true` and compare the images.
+
 **Diagnostic captures are allowed.** When a verdict needs it, capture more times around a
 beat, a single view at a larger frame size, or `system_color_stats` over more times. Say
 in the review which captures a score rests on.

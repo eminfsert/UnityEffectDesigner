@@ -122,7 +122,7 @@ def ring(a):
 
 def star(a):
     """Polar star: the outline swings between the tips (radius --outer) and the valleys between
-    them (--inner, as a fraction of --outer). --sharp > 1 makes concave, needle-like rays;
+    them (--inner, as a fraction of --outer). --sharp > 1 makes concave sides (thin lens-shaped rays);
     1 roughly straight edges; < 1 a puffy, rounded star."""
     x, y = grid(a.size)
     r = np.sqrt(x * x + y * y)
@@ -273,7 +273,7 @@ def main(argv=None):
     sp.add_argument("--points", type=int, default=4)
     sp.add_argument("--inner", type=float, default=0.3, help="valley radius as a fraction of --outer (0.1 needles, 0.6 chunky)")
     sp.add_argument("--outer", type=float, default=0.9, help="tip radius; keep <= 0.9")
-    sp.add_argument("--sharp", type=float, default=2.0, help=">1 concave needle rays, 1 straight edges, <1 puffy")
+    sp.add_argument("--sharp", type=float, default=2.0, help=">1 concave sides (3 + low --inner: thin lens/leaf rays), 1 straight edges, <1 puffy")
     sp.add_argument("--softness", type=float, default=0.012)
     sp.add_argument("--rotation", type=float, default=0.0, help="degrees; 0 = a tip points up")
     sp.add_argument("--glow", type=float, default=0.3, help="soft halo strength behind the star")

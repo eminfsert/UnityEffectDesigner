@@ -95,6 +95,11 @@ Additive `Stylized Unlit` sparks, particle colors `#FFC247`→`#FFF4D6`:
   channel clips, more intensity only raises the others, and the hue drifts toward
   yellow/white. Set the hue with the particle color or the tint's hue at moderate
   intensity (0–1 stops), and treat intensity as brightness only.
+- **Rendered hue runs a few degrees yellower than the hex.** For a red-dominant color the
+  hex hue is 60° × (G − B) / (R − B); bright additive layers measured 4–7° above it:
+  `#FFB030` (37°) rendered 41–44°, an off-white core `#FFE8A0` (45°) rendered 51°, lemon
+  rather than gold. For a gold that must read gold, pick hex hues around 32–40°; the
+  paler the color (high B), the less saturation survives.
 
 ## Writing a new shader
 

@@ -69,6 +69,7 @@ static class Program
         failures += CheckReadabilityWarning();
         failures += CheckEasingKeys();
         failures += CheckToolkitVersion();
+        failures += CheckFrameTimes();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -205,6 +206,22 @@ static class Program
         bool ok = version == EffectDesigner.VFXToolkit.Editor.ToolkitInfo.Version;
         Console.WriteLine(ok ? $"PASS toolkit version {version} matches package.json"
                              : $"FAIL ToolkitInfo.Version {EffectDesigner.VFXToolkit.Editor.ToolkitInfo.Version} != package.json {version}");
+        return ok ? 0 : 1;
+    }
+
+    // Capture times: t = 0 is the first frame, each 1/60 s adds one; times on the same frame are captured once.
+    static int CheckFrameTimes()
+    {
+        int F(float t) => EffectDesigner.VFXToolkit.Editor.Capture.EffectSampler.FrameIndex(t);
+        var request = new EffectDesigner.VFXToolkit.Editor.Capture.CaptureRequest { Times = new[] { 0f, 0.008f, 0.017f, 0.05f, 0.1f, 0.105f, 0.5f } };
+        string note = EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.MergeSameFrameTimes(request);
+        var clean = new EffectDesigner.VFXToolkit.Editor.Capture.CaptureRequest { Times = new[] { 0f, 0.017f, 0.034f } };
+        bool ok = F(0f) == 1 && F(0.008f) == 1 && F(0.017f) == 2 && F(0.05f) == 4 && F(0.5f) == 31
+                  && request.Times.SequenceEqual(new[] { 0f, 0.017f, 0.05f, 0.1f, 0.5f })
+                  && note != null && note.Contains("0.008 (same frame as 0)") && note.Contains("0.105 (same frame as 0.1)")
+                  && EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.MergeSameFrameTimes(clean) == null && clean.Times.Length == 3;
+        Console.WriteLine(ok ? "PASS capture times: 60 fps frame index, same-frame times merged with a note"
+                             : $"FAIL capture times: frames {F(0f)} {F(0.008f)} {F(0.017f)} {F(0.05f)} {F(0.5f)}, kept [{string.Join(", ", request.Times)}], note: {note}");
         return ok ? 0 : 1;
     }
 

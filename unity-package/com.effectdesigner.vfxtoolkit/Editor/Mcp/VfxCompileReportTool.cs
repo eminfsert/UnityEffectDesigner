@@ -36,7 +36,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
         {
             var result = ShaderReport.Run(@params, out string error);
             if (result == null)
-                return new ErrorResponse(error);
+                return new ErrorResponse(error, new { toolkitVersion = ToolkitInfo.Version });
 
             string message = result.shadersWithErrors == 0 && result.contractViolations == 0
                 ? $"{result.checkedShaders} shader(s) compile cleanly" + (result.contractViolations == 0 ? " and match the property contract." : ".")

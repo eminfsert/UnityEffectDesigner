@@ -68,7 +68,8 @@ Rules:
 - Keep 3–7 layers. More layers make a muddier effect, not a better one.
 - `palette` names are reused as `$name` in particle recipes.
 - Capture times are derived from the beats: 0, every beat, beat + 2 frames (+0.034 s:
-  the impact must be at full size there), and the end of every window.
+  the impact must be at full size there), and the end of every window. Captures run at
+  60 fps: times closer than 0.017 s fall on the same frame and are captured once.
 - **White heroes.** A white core is right for the 1–3 frame flash; a white layer that
   lasts longer reads as washed out (and the capture flags it). Make the core a warm or
   cool off-white (`#FFF4D6`, not `#FFFFFF`), keep it small, and give a long-lived white

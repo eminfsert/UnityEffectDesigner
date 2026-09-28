@@ -45,7 +45,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
         {
             var result = ParticleRecipeBuilder.Apply(@params, out var errors);
             if (result == null)
-                return new ErrorResponse($"Recipe rejected, nothing was changed ({errors.Count} problem(s)).", new { errors });
+                return new ErrorResponse($"Recipe rejected, nothing was changed ({errors.Count} problem(s)).", new { toolkitVersion = ToolkitInfo.Version, errors });
 
             string verb = result.dryRun ? "Validated" : "Applied";
             string message = $"{verb} {result.systems.Count} system(s)" +

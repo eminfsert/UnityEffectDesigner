@@ -519,7 +519,14 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
 
         static List<string> Summarize(SystemPlan plan)
         {
-            var list = plan.Modules.Select(m => $"{ModuleBinder.ToSnake(m.Name)}({m.Setters.Count})").ToList();
+            var list = new List<string>();
+            if (plan.Reset) list.Add("reset");
+            if (plan.Position.HasValue) list.Add("position");
+            if (plan.Rotation.HasValue) list.Add("rotation");
+            if (plan.Scale.HasValue) list.Add("scale");
+            if (plan.Active.HasValue) list.Add("active");
+            if (plan.Order.HasValue) list.Add("order");
+            list.AddRange(plan.Modules.Select(m => $"{ModuleBinder.ToSnake(m.Name)}({m.Setters.Count})"));
             if (plan.Bursts != null) list.Add($"bursts({plan.Bursts.Length})");
             if (plan.Sprites != null) list.Add($"sprites({plan.Sprites.Count})");
             if (plan.CustomData != null) list.Add($"custom_data({plan.CustomData.Count})");
@@ -610,7 +617,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Recipes
                 emission.enabled = true;
                 emission.SetBursts(plan.Bursts);
             }
-            WarnAboutLateBursts(ps, plan.Name, ctx);
+            // Only when this recipe touches timing, so unrelated patches do not repeat the warning.
+            if (plan.Bursts != null || plan.Modules.Any(m => m.Name == "main" || m.Name == "emission"))
+                WarnAboutLateBursts(ps, plan.Name, ctx);
 
             if (plan.Sprites != null)
             {
