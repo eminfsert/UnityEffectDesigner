@@ -76,7 +76,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// <summary>
         /// VolumeProfile asset applied as a top-priority global volume during the capture, so the
         /// effect is judged under the game scene's post-processing. Defaults to the project's
-        /// ProjectSettings/EffectDesigner.json volume_profile; scene volumes never reach the capture.
+        /// ProjectSettings/EffectDesigner.json volume_profile; "none" opts out (pipeline defaults only).
+        /// Scene volumes never reach the capture.
         /// </summary>
         public string VolumeProfile;
         /// <summary>Re-frame each view on the visible pixels (ignored when FramingRadius is set).</summary>

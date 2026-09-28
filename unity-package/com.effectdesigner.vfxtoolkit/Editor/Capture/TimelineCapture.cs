@@ -77,8 +77,9 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 frameSize = request.FrameSize,
             };
 
-            if (string.IsNullOrWhiteSpace(request.VolumeProfile))
-                request.VolumeProfile = EffectDesignerSettings.Load().VolumeProfile;
+            string profileSource = ResolveVolumeProfile(request, out error);
+            if (error != null)
+                return null;
 
             string folder = PrepareOutputFolder(request, source.name);
             result.outputFolder = folder;
@@ -161,7 +162,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                     var statsReference = rig.RenderBackgroundOnly(request.Backgrounds[0].Color).GetPixels32();
                     result.colorStatsFor = result.rows[0];
                     result.postProcessing = rig.DescribePostProcessing();
-                    if (string.IsNullOrWhiteSpace(request.VolumeProfile))
+                    result.postProcessing.volumeProfileSource = profileSource;
+                    if (profileSource == null)
                         result.warnings.Add($"Rendered with the pipeline's default volume profiles only (global + quality level; tonemapping: {result.postProcessing.tonemapping}). " +
                                             "Scene volumes never reach captures, so colors may not match the game: pass volume_profile, or set it once " +
                                             "for the project (select the game's VolumeProfile > Assets > Effect Designer > Use As Capture Volume Profile).");
@@ -212,6 +214,49 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
 
             return result;
+        }
+
+        const string ProjectSettingsSource = "project settings (ProjectSettings/EffectDesigner.json)";
+
+        /// <summary>
+        /// Picks the volume profile: the parameter, "none" to opt out (pipeline defaults only, e.g. for
+        /// before/after comparisons), or the project default. Returns where it came from (null = no
+        /// profile, not requested either) and fails early, naming the source, if the asset is missing.
+        /// </summary>
+        static string ResolveVolumeProfile(CaptureRequest request, out string error)
+        {
+            error = null;
+            string source;
+            if (string.Equals(request.VolumeProfile?.Trim(), "none", StringComparison.OrdinalIgnoreCase))
+            {
+                request.VolumeProfile = null;
+                return "none (explicit)";
+            }
+            if (!string.IsNullOrWhiteSpace(request.VolumeProfile))
+            {
+                source = "volume_profile parameter";
+            }
+            else
+            {
+                request.VolumeProfile = EffectDesignerSettings.Load().VolumeProfile;
+                if (string.IsNullOrWhiteSpace(request.VolumeProfile))
+                {
+                    request.VolumeProfile = null;
+                    return null;
+                }
+                source = ProjectSettingsSource;
+            }
+
+            if (AssetDatabase.LoadMainAssetAtPath(request.VolumeProfile) == null)
+            {
+                error = $"No VolumeProfile at '{request.VolumeProfile}' (from the {source}). " +
+                        (source == ProjectSettingsSource
+                            ? "The profile was moved or deleted: select the game's VolumeProfile and use Assets > Effect Designer > Use As Capture Volume Profile, " +
+                              "edit ProjectSettings/EffectDesigner.json, or pass volume_profile \"none\" for this capture."
+                            : "Pass the asset path of an existing VolumeProfile, or \"none\".");
+                return null;
+            }
+            return source;
         }
 
         /// <summary>

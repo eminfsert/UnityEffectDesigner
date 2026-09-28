@@ -69,6 +69,8 @@ Output (in `Library/VFXToolkit/Captures/<label>_<timestamp>/` by default):
   profiles (global + quality level) apply. Pass the game scene's VolumeProfile, or set it
   once per project: select it, then **Assets → Effect Designer → Use As Capture Volume
   Profile** (writes `ProjectSettings/EffectDesigner.json`, used by every capture).
+  `volume_profile: "none"` opts out for one capture (pipeline defaults only). A profile
+  path that no longer exists fails the capture with a message naming where it came from.
 - `colorStats` per time (first view/background): coverage, `washedOut` (share of bright
   pixels that lost their color, e.g. from a white HDR tint), mean saturation, dominant hue.
   Most frames washed out gives a warning.

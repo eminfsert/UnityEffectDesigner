@@ -14,6 +14,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
     public sealed class PostProcessInfo
     {
         public string volumeProfile;
+        /// <summary>Where the profile came from: the parameter, project settings, or "none (explicit)"; null if none was set anywhere.</summary>
+        public string volumeProfileSource;
         public string tonemapping;
         public bool bloom;
         public float bloomThreshold;
