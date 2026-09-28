@@ -4,9 +4,17 @@ Commit a1956a7. Package and plugin are **0.5.1**. Update both as in 008 (within 
 session's permission settings; if anything prompts, ask the user), wait for the recompile,
 `/reload-plugins`.
 
-The `_Test008` material has `_ZWrite 1` from your 008 experiment: set it back to 0 first
-(re-apply the 008 §4 recipe unchanged; it rewrites the material), so the fix is tested on
-its own.
+The `_Test008` material has `_ZWrite 1` from your 008 experiment. Set it back to 0 first, so
+the fix is tested on its own (a material patch only changes the properties it names, so
+re-applying the 008 recipe would keep 1):
+
+```json
+{ "target": "Assets/VFX/_Test008/VFX_Test008.prefab",
+  "systems": [ { "name": "Dome", "renderer": { "material": {
+    "path": "Assets/VFX/_Test008/M_Test008_Dome.mat",
+    "shader": "EffectDesigner/Particles/Stylized Shell",
+    "properties": { "_ZWrite": 0 } } } } ] }
+```
 
 ## 1. Shell sorting
 
