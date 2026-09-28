@@ -40,3 +40,11 @@ From the same capture:
 
 Run 008 §5 (vfxref on the user's references) once the screenshots are in
 `Assets/VFX/StrongExplosion/Design/refs/`, then 009.
+
+## Addendum (0.5.2, commit after 2155649)
+
+010 §1–2 passed. 0.5.2 only relaxes the identical-background check (2% relative tolerance,
+so the ground note appears with a sliver of sky in frame) and adds value-contrast guidance
+the 009 team will read (keep the cooled shell light while large; ink and dark smoke carry
+contrast later). Update to 0.5.2 before 009; no separate verification needed beyond
+seeing the ground note in 009's first capture.
