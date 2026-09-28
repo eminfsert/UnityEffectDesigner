@@ -55,6 +55,13 @@ execute_custom_tool(tool_name="vfx_capture_timeline", parameters={...})
 
 Parameter names are snake_case exactly as documented below.
 
+**Right after a package update Unity recompiles and reloads.** Wait until
+`EditorApplication.isCompiling` and `EditorApplication.isUpdating` are both false (poll
+with `execute_code` or check the editor state resource) before the next toolkit call. A
+call that returns "disconnected while awaiting command_result" may or may not have been
+applied: read back what it should have changed, then resend it. Recipes and material
+writes are idempotent, so resending is safe.
+
 **Stale schema after a package update.** MCP for Unity caches a custom tool's schema when
 the tool is first registered. After the toolkit package is updated, the direct tool can
 reject new parameters with `Unexpected keyword argument` until the MCP client reconnects.

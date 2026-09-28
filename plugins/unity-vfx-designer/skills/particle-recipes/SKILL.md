@@ -125,6 +125,11 @@ kept, and warns. Glow and bloom come from the **material**: an HDR base/emission
 color, or a shader multiplier fed by `custom_data`. Keep palette HDR entries for
 materials and use plain hex colors on particles.
 
+**Hue lives in one place.** Particle color multiplies the material tint (in linear
+light). If both carry the palette hue it is applied twice and shifts: gold × gold renders
+deep orange. Default to tint = palette color, particle color white/near-white with the
+alpha fade; color particles only for a deliberate hue shift, over a near-white tint.
+
 **Color fields** (MinMaxGradient): a color; `["#a", "#b"]` (random between two);
 `{"gradient": {"colors": ["$core", "$primary"], "alphas": [[0, 1], [1, 0]]}}`, where
 colors may also be `[[t, color], ...]` (max 8 color and 8 alpha keys) and

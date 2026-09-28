@@ -94,8 +94,8 @@ table.
 - **When a channel hits the ceiling, intensity stops controlling hue.** Once the dominant
   channel clips (tint × particle color × texture > 1 before tonemapping), more intensity
   only raises the others, and the hue drifts toward yellow/white. Set the hue with the
-  particle color or the tint's hue at moderate intensity (0–1 stops), and treat intensity
-  as brightness only.
+  tint's hue (particle color white) at moderate intensity (0–1 stops), and treat
+  intensity as brightness only.
 - Tint and particle color multiply in linear light, so two mid-saturated colors multiply
   into a more saturated, darker one (`#FFB030` × `#FFB030` is deep orange). Keep one of
   them near white when the other carries the hue.

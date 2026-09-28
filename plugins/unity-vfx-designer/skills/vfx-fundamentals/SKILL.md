@@ -87,8 +87,12 @@ in the review which captures a score rests on.
   **lower the intensity or the clipped channel's neighbours' share**, do not add
   intensity. Raising HDR intensity pushes more channels to the ceiling and moves the hue
   further toward white.
-- Control a layer's hue with its **particle color / tint hue**, and its brightness with
-  intensity. Numbers from earlier effects are a starting point only: the same values
+- Control a layer's hue with **one** carrier (normally the material tint; particle color
+  white), and its brightness with intensity. A hue in both tint and particle color is
+  applied twice and drifts toward red/orange.
+- **One palette family per effect.** When layers measure far apart (a ring at 20–30°
+  next to stars at 60°), the effect reads as two effects: bring the layers' tints within
+  ~15° of the primary unless the spec asks for an accent. Numbers from earlier effects are a starting point only: the same values
   render differently with another shape, size, blend mode or volume profile.
 - Every color fix states its **acceptance test** in the stats the next capture returns,
   e.g. `systemColorStats.Sparks hue 35–50 and washedOut < 35% at 0.1–0.35 s`.

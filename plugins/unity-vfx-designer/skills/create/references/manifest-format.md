@@ -77,10 +77,13 @@ Rules:
   links, shader properties and streams. Curves, counts, speeds and exact colors live in the
   recipes (`Design/recipes/`) and change every round; `tint` and `properties` here are
   starting values.
-- **Particle color vs tint.** The material `tint` (HDR) sets brightness and glow for the
-  whole layer. Particle colors (start color, color over lifetime) are 8-bit, multiply the
-  tint, and carry the hue variation and fades. Plan both: e.g. tint `primary` @1, particle
-  color white → primary over life.
+- **Particle color vs tint: one of them carries the hue.** The material `tint` (HDR) sets
+  the layer's hue, brightness and glow. Particle colors (start color, color over lifetime)
+  are 8-bit and **multiply** the tint in linear light, so a hue in both is applied twice:
+  `#FFB030` × `#FFB030` renders deep orange (~28°), not gold. Default: tint = the layer's
+  palette color @ its intensity, particle color white (or near-white, for small
+  variation) with the alpha fade. Use a colored particle color only for a deliberate hue
+  shift over life, with a near-white tint.
 - `status`: `make` = the Texture Artist creates it; after it exists the artist sets
   `existing`, so later rounds do not remake it. A fix that changes a texture sets it back
   to `make` with a new `how`. `starter` = shipped with the toolkit.
