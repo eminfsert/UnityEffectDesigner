@@ -29,6 +29,11 @@ Do:
    starter shader `EffectDesigner/Particles/Stylized Unlit` and the starter textures.
    Mark a texture `make` only when the layer's look needs a shape the starters do not
    have, and write the exact `vfxtex.py` command or SVG idea in `how`.
+   Shells, domes, rings on the ground and standing slashes are **mesh particles**: list the
+   meshes in the manifest's `meshes` block with their `vfx_make_mesh` parameters, and use
+   the `Stylized Shell` shader for them (its stream contract is fixed in `vfx-shaders`).
+   With references, follow the spec's layer inventory and `reference_analysis`; every
+   element the spec lists gets a system.
 4. Add a **dark companion** system when the spec asks for readability on light
    backgrounds: an alpha-blended, darker, slightly larger copy of the hero shape, drawn
    behind it (`order` before the hero, or a positive `sorting_fudge`), aimed at the same
@@ -37,7 +42,8 @@ Do:
    for every shader.
 6. Derive the capture block from the beats and windows: t = 0, every beat, beat + 2 frames,
    the end of every window, and the effect end. Use views `three_quarter` and `side`, and the
-   spec's backgrounds plus the game's ground color when the effect plays over terrain.
+   spec's backgrounds plus the game's ground color when the effect plays over terrain, and
+   `ground: <that color>` for effects that sit on the ground.
 7. Check existing assets under `Assets/VFX/<Id>/` so you do not clobber work from a
    previous iteration.
 

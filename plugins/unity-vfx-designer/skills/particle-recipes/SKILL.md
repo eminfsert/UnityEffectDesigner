@@ -146,6 +146,33 @@ Always resend the complete gradient (colors and alphas), curve or burst list.
 call: `{"path", "shader", "blend", "properties", "keywords"}`, described in the `vfx-shaders` skill.
 **Enums:** case-insensitive, snake_case fine (`"world"`, `"horizontal_billboard"`).
 
+## Mesh particles (shells, domes, rings, slashes)
+
+Meshes come from `vfx_make_mesh` (see `unity-adapter`); `renderer.mesh` takes the asset path.
+
+```json
+"renderer": {
+  "render_mode": "mesh",
+  "mesh": "Assets/VFX/Boom/Meshes/SM_Boom_Dome.asset",
+  "alignment": "local",
+  "vertex_streams": ["Position", "Normal", "Color", "UV", "Custom1XY"],
+  "material": { "path": "...", "shader": "EffectDesigner/Particles/Stylized Shell", "blend": "alpha", "properties": { ... } }
+}
+```
+
+- **`alignment: "local"`** (or `"world"`). The default aligns meshes to the view, which
+  turns a dome toward the camera.
+- `vfx_make_mesh` shapes are 1 m across (radius 0.5), so `start_size` is the diameter in
+  meters. Use `start_size3d` with `start_size_x/y/z` to squash (a flatter dome: y < x).
+- Pivots: dome, sphere, ring and cylinder rest on y = 0, so a dome grows up from the ground;
+  arc slashes pivot at their thickest point.
+- `start_rotation3d` + `start_rotation_x/y/z_deg` turns meshes (an arc stands vertical by
+  default; y rotation spins it around the effect).
+- Mesh particles need the `Normal` stream for rims and lighting, and `Custom1XY` when the
+  shader reads x and y.
+- Pop a shell with `size_over_lifetime` `ease_out_back` from ~0.6 to 1 in the first frames,
+  then let custom data drive color and erosion.
+
 ## Sub-emitters
 
 ```json

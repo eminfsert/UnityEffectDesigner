@@ -36,6 +36,12 @@ textures:                                          # everything the layers sampl
     path: Packages/com.effectdesigner.vfxtoolkit/Textures/T_VFX_Star4.png
     status: starter
 
+meshes:                                            # made with vfx_make_mesh by the Particle Artist
+  - name: SM_ArcaneNova_Dome
+    path: Assets/VFX/ArcaneNova/Meshes/SM_ArcaneNova_Dome.asset
+    status: make                                   # make | existing
+    make: { shape: dome, radius: 0.5, angle: 90, segments: 48, rings: 16 }
+
 shaders:
   - name: EffectDesigner/Particles/Stylized Unlit   # default; custom shaders only when needed
     status: starter

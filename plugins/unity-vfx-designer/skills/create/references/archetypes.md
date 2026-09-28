@@ -13,6 +13,20 @@ presets: every layer still gets the brief's shapes, colors and timing.
 | embers | aftermath | 0.1–1.5 | slow, noise, fade |
 | dark companion | readability | same as shape | alpha-blended darker duplicate of the hero shape, slightly larger |
 
+## toon explosion (strong stylized blast; opaque toon shapes, reads on bright daylight ground)
+| Layer | Job | Window (s) | Technique |
+|---|---|---|---|
+| dome | impact shape | 0.00–0.45 | `vfx_make_mesh` dome, mesh particle, Stylized Shell: ramp near-white → yellow → peach → orange over life (hard steps), orange rim, dark back faces; pops in 2–3 frames (`ease_out_back`); `stripes` erosion breaks it into strips |
+| hot debris | secondary motion | 0.00–0.30 | flame tongues and small shards flung out, alpha blend, gravity |
+| speed dashes | impact accent | 0.00–0.15 | short white streaks on an arc around the dome top |
+| puffs | body | 0.25–0.70 | 4–8 toon puffs (`puff` texture, dark strokes in RGB) around the base, orange → darker |
+| ink | cool-down | 0.35–1.20 | black `arc` slashes standing up + `swirl` curls, alpha blend, rotating, fading |
+| dark smoke | aftermath | 0.30–1.50 | translucent dark dome or puffs (Stylized Shell with low opacity, or alpha puffs), slow erosion |
+| embers | aftermath | 0.30–1.50 | tiny yellow specks, slow, fade |
+
+Capture on the game's ground color (`ground`) and a light background: most layers are
+alpha-blended and readable by value, not glow.
+
 ## burst / pickup (reward, collect, small pop; archetype `burst` or `pickup`)
 flash (small) → radial sparkle stars (4–8, rotating) → ring pop (`pop` curve) → glints
 drifting up. Short: 0.4–0.8 s. Bright, saturated and friendly shapes.

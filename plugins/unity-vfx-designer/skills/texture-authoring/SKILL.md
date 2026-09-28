@@ -44,6 +44,11 @@ C# fallback below instead of blocking.
 | `slash` | crescent arc for sword trails / swipes | `--arc 150 --width 0.18` |
 | `noise` | tileable fractal value noise | `--cells 4 --octaves 5 --seed 7` |
 | `smoke` | stylized puff flipbook (grow → erode) | `--frames 16 --grid 4` (use with `texture_sheet_animation.num_tiles_x/y` = 4) |
+| `swirl` | ink curl: spiral stroke, thick middle, sharp ends | `--turns 1.3 --width 0.14 --seed 2` |
+| `shard` | jagged debris / dark crack (crooked spine with sawtooth spikes) | `--spikes 7 --inner 0.12 --seed 3` |
+| `flame` | stylized flame tongues rising from a base | `--tongues 3 --width 0.16 --seed 1` |
+| `puff` | toon puff: round lobes, **dark inner strokes in RGB** (tint colors the puff, strokes stay dark) | `--lobes 4 --strokes 2 --seed 5` |
+| `stripes` | erosion mask (grayscale, repeat) that breaks a shell into strips along u: borders open first, each strip goes at its own time | `--bands 8 --noise 0.15 --seed 4` |
 | `svg` | rasterize an SVG you wrote | `--svg shape.svg` (needs `cairosvg`) |
 | `preview` | alpha row + tinted on dark + tinted on light | `preview out.png a.png b.png ... --tint 40C8FF` |
 
@@ -86,6 +91,9 @@ tools:
 - Masks: sRGB on, alpha source **from input**, **Alpha Is Transparency on**, wrap **Clamp**,
   mipmaps on (particles shrink; without mipmaps small ones shimmer).
 - Noise/data: **sRGB off**, wrap **Repeat**, Alpha Is Transparency off, mipmaps on.
+- `stripes` masks are data like noise: sRGB off, wrap **Repeat** (u wraps around a dome).
+- `puff` carries shading in RGB: keep sRGB on; the material tint multiplies RGB, so the
+  strokes stay dark whatever the tint.
 - Flipbooks: wrap Clamp, mipmaps on; record the grid (e.g. 4x4) in the manifest for the
   Particle Artist.
 

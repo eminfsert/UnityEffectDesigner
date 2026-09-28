@@ -32,7 +32,7 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.4.3** (`colorStatsByBackground`, `systemColorStats`,
+   needs **toolkit ≥ 0.5.0** (`vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
    `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging, and
    correct `[HDR]` material colors: effects built with ≤ 0.4.2 have too-light tints and
    need their inline materials re-applied).
@@ -80,6 +80,7 @@ therefore log one line per entry, culture-invariant, all prefixed `[VFX Toolkit]
 |---|---|
 | Scene / GameObject / prefab / asset | `manage_scene`, `manage_gameobject`, `manage_prefabs`, `manage_asset` |
 | **Build or change Shuriken systems (all modules, sub-emitters, custom data, vertex streams, prefab save)** | **`vfx_apply_particle_recipe`** (toolkit), see the `particle-recipes` skill |
+| **Meshes for mesh particles (dome, sphere, ring, cylinder/cone, arc slash)** | **`vfx_make_mesh`** (toolkit): `{shape, path, radius, ...}`; rebuilding a path keeps references. UVs: u around/along, v across |
 | Inspect or play a single Shuriken system | `manage_vfx` with `particle_*` actions (`particle_get_info`, `particle_play`) |
 | VFX Graph from template + exposed properties, events, seed | `manage_vfx` with `vfx_*` actions |
 | Line / trail renderers | `manage_vfx` with `line_*` / `trail_*` actions |
@@ -112,6 +113,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `framing_radius` | auto | Fix it (meters) when comparing iterations, so scale changes are visible. Disables auto framing |
 | `view_framing` | none | A previous result's `viewFraming` (`[{view, lookAt, distance}]`): those views reuse that camera placement exactly and skip auto framing. Use it every round after the first so iterations line up |
 | `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time (~10% capture time for two systems); turn off for quick looks |
+| `ground` | none | A ground plane under the effect in the game's ground color (hex), at the pivot (`ground_height` shifts it). Use it for anything that sits on the ground (domes, ground rings, dust); it counts as background in the color stats, so readability is measured against the real ground |
 | `system_frames` | false | Also saves those system-alone renders as PNGs (`systemFrames`), to see why a layer alone and the composite measure differently |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it, and `"none"` renders with the pipeline defaults only (for before/after comparisons) |

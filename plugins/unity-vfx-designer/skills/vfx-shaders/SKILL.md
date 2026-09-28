@@ -1,6 +1,6 @@
 ---
 name: vfx-shaders
-description: Writing and checking URP effect shaders for the Effect Designer — the VFXCore.hlsl library, the ready-made "EffectDesigner/Particles/Stylized Unlit" shader and its vertex-stream contract, inline materials in particle recipes, HDR/bloom rules, and the vfx_compile_report loop. Load before writing or changing any shader or material for an effect.
+description: Writing and checking URP effect shaders for the Effect Designer — the VFXCore.hlsl library, the ready-made "EffectDesigner/Particles/Stylized Unlit" and "Stylized Shell" shaders and their vertex-stream contracts, inline materials in particle recipes, HDR/bloom rules, and the vfx_compile_report loop. Load before writing or changing any shader or material for an effect.
 user-invocable: false
 ---
 
@@ -11,9 +11,12 @@ user-invocable: false
 1. **`EffectDesigner/Particles/Stylized Unlit`** (in the VFX Toolkit package) covers most
    particle layers: HDR tint, additive/alpha/premultiplied blending, noise erosion with a
    glowing edge, posterized (cel) alpha, soft particles. Use it before writing a new shader.
-2. Write a new shader only when a layer needs something it cannot do (polar/scrolling
-   masks on meshes, fresnel shells, distortion, vertex offset...). Build it on
-   `VFXCore.hlsl`.
+2. **`EffectDesigner/Particles/Stylized Shell`** is for mesh particles (domes, spheres,
+   shockwave rings and walls, arc slashes from `vfx_make_mesh`): a flat toon fill that steps
+   through a 4-color ramp over the particle's life, a hard rim on the silhouette, darker back
+   faces, and a dissolve that can break the shell into strips.
+3. Write a new shader only when a layer needs something neither can do (polar/scrolling
+   masks, distortion, vertex offset...). Build it on `VFXCore.hlsl`.
 
 ## Stylized Unlit: properties and contract
 
@@ -33,6 +36,35 @@ Vertex streams when using per-particle erosion:
 `"vertex_streams": ["Position", "Color", "UV", "Custom1X"]` with
 `"custom_data": {"custom1": {"x": {"ease": "ease_in_quad", "from": 0, "to": 1}}}`:
 the particle dissolves over its life.
+
+## Stylized Shell: properties and contract
+
+| Property | Type | Use |
+|---|---|---|
+| `_RampColor0`..`_RampColor3` | HDR Color | Color sequence over the ramp position: hot → cooled (e.g. near-white, yellow, peach, orange) |
+| `_RampStops` | Vector | Where colors 1, 2, 3 start (x, y, z in 0–1, ascending) |
+| `_RampHard` | Range 0–1 | 1 = flat cel bands (each segment holds its color), 0 = smooth blend |
+| `_RampOffset` | Range 0–1 | Ramp position without custom data (static color) |
+| `_Opacity` | Range 0–1 | Fill opacity; below 1 the inside shows through (translucent shell) |
+| `_RimColor` | HDR Color | Silhouette rim color; its alpha is the rim's opacity (a rim can stay opaque on a translucent fill) |
+| `_RimWidth`, `_RimSoftness` | Range | Rim band width (0–1 of the silhouette falloff) and edge hardness (small = toon) |
+| `_BackTint` | Color | Multiplies back faces (the inside of a dome): dark and a little transparent reads as a hollow shell |
+| `_ErosionMap`, `_ErosionScroll` | Texture, Vector | Dissolve mask (R) on the mesh UVs; a `vfxtex stripes` mask breaks a dome into vertical strips |
+| `_Erosion`, `_Softness`, `_EdgeWidth`, `_EdgeColor` | | As in Stylized Unlit; per-particle erosion adds Custom1.y |
+| `_SrcBlend`, `_DstBlend`, `_Cull`, `_ZWrite` | Enum | `blend` preset; Cull defaults to Off (both faces) |
+
+Vertex streams: `["Position", "Normal", "Color", "UV", "Custom1XY"]` (Normal is required
+for the rim), with custom data driving the look over life:
+
+```json
+"custom_data": { "custom1": {
+  "x": { "ease": "linear", "from": 0, "to": 1 },
+  "y": [[0, 0], [0.45, 0], [0.8, 0.9], [1, 1]] } }
+```
+
+x = ramp position (the color sequence), y = erosion (strips opening, then the shell gone).
+The ramp colors are the palette's heat sequence; particle color stays white (see
+`particle-recipes`: the hue lives in one place).
 
 ## Materials inside a particle recipe
 

@@ -106,6 +106,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             {
                 using (var rig = new CaptureRig(source, request.FrameSize, request.FieldOfView, request.AddLight, request.PostProcessing, request.VolumeProfile))
                 {
+                    if (request.Ground.HasValue)
+                    {
+                        rig.AddGround(request.Ground.Value, request.GroundHeight, 400f);
+                        result.notes.Add(FormattableString.Invariant($"Rendered on a ground plane '{request.GroundName}' at y = {request.GroundHeight:0.##} m (the effect's pivot is at 0); anything below it is hidden, as in game."));
+                    }
                     var sampler = new EffectSampler(rig.Effect, request.Seed);
                     sampler.LiftMaxParticleSize();
                     result.particleSystems = sampler.ParticleSystemCount;

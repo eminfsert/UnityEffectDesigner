@@ -24,7 +24,8 @@ e.g. `vfx:vfx-architect`):
 | `particle-artist` | Particle recipes: all systems, materials (inline), prefab |
 | `vfx-critic` | Captures and a scored review with routable fixes |
 
-Load the `unity-adapter` and `vfx-fundamentals` skills now. Read
+Load the `unity-adapter` and `vfx-fundamentals` skills now, and `reference-analysis`
+when the user gives reference images or clips. Read
 [spec-format.md](references/spec-format.md) and [archetypes.md](references/archetypes.md);
 the architect reads [manifest-format.md](references/manifest-format.md).
 
@@ -42,6 +43,12 @@ From the request and any reference images (open and look at them), work out the
 archetype, where and how it is seen in the game (camera distance, background brightness),
 size, duration and loop. Ask **at most 3** short questions, only for what you cannot infer.
 Skip questions when the brief is clear.
+
+**With references:** copy them to `Design/refs/` if they are not in the project yet, run
+`vfxref.py sheet` (see `reference-analysis`) and open the reference sheet. Build the layer
+inventory frame by frame (every distinct element and the frames it appears in), and take
+beats, palette per phase and the color sequence from the measurements. Scale comes from
+objects of known size in the frames, confirmed by the user.
 
 ## 2. Spec and concept board (user checkpoint)
 

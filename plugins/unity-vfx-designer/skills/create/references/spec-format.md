@@ -7,7 +7,7 @@ production. It describes **what** the effect is, not how it is built. Location:
 ```yaml
 id: ArcaneNova                 # PascalCase, used in every asset name
 title: "Arcane Nova impact"
-archetype: impact              # impact | burst | pickup | aura | buff | projectile | custom (see archetypes.md)
+archetype: impact              # impact | toon_explosion | burst | pickup | aura | buff | projectile | custom (see archetypes.md)
 style: stylized_hand_painted   # stylized_hand_painted | anime_cel | moba_readable
 brief: >
   Purple-gold spell impact: brief inward pull, then a white flash, a broken ring
@@ -15,6 +15,12 @@ brief: >
 references:                    # optional; images the user gave, with what to take from each
   - path: Assets/VFX/ArcaneNova/Design/refs/ref_01.png
     take: "broken ring edge, spark density"
+reference_analysis:            # when references were measured with vfxref.py (reference-analysis skill)
+  sheet: Assets/VFX/ArcaneNova/Design/refs/analysis/reference_sheet.png
+  json: Assets/VFX/ArcaneNova/Design/refs/analysis/reference.json
+  times_estimated: true        # screenshots: times are estimates; GIF/video: exact
+  sequence: "white core 7% + yellow 44% (h42) -> peach (h33) -> orange + ink 13% -> ink 27% + dark smoke -> fade"
+  follow: [color sequence, ink takeover timing, dome silhouette]   # what the critic checks against the reference"
 game:
   context: "enemy hit by player spell, third-person camera ~8 m away"
   scale_meters: 2.5            # diameter at the impact peak

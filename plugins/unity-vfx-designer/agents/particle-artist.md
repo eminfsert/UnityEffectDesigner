@@ -12,6 +12,8 @@ Input: spec and manifest paths; in later rounds, the critic's fixes addressed to
 The Director has already run the unity-adapter preflight; do not repeat it.
 
 First build:
+0. Make every mesh the manifest marks `make` with `vfx_make_mesh` (its `make` parameters),
+   then set its status to `existing`.
 1. Write one recipe for the whole effect: `name` = `VFX_<Id>`, `save_prefab` = the
    manifest's prefab path, `palette` = the spec palette, one system per manifest system,
    and each material inline (path, shader, blend, textures, tint with intensity and other

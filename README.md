@@ -66,6 +66,9 @@ oturumdur: seninle konuşur, ekibi yönetir. Her efektin tasarım dosyaları
 - [x] `vfx-shaders` skill'i
 - [x] Capture: renk ölçümü (washedOut, doygunluk, ton), oyunun volume profile'ı ile render (proje ayarı)
 - [x] Capture: sistem başına ve arka plan başına renk ölçümü, düşük kontrast uyarısı, `view_framing` ile aynı kadraj
+- [x] Referans analizi `vfxref.py` (görsel/GIF/video → referans sayfası, faz renkleri, siyah/parlak oranları; critic için yan yana karşılaştırma)
+- [x] `vfx_make_mesh` (kubbe, küre, halka, silindir/koni, yay) ve `Stylized Shell` shader'ı (renk rampası, toon kenar, şeritle çözülme)
+- [x] Yeni doku şekilleri: mürekkep kıvrımı, kırık parça, alev dili, çizgili toon puf, şerit maskesi; capture'da yer düzlemi
 - [ ] `vfx_project_check`
 - [x] Ajanlar (architect, texture, shader, particle, critic) ve `/vfx:create`, `/vfx:iterate`, `/vfx:review`
 - [x] Doku üretici `vfxtex.py` (glow, halka, yıldız, streak, slash, noise, smoke flipbook, SVG)
@@ -84,7 +87,7 @@ ile üretilir; pakete yeni dosya eklerken çalıştırın.
   yeni içeriği almayabilir.
 - Paket sürümü `Editor/ToolkitInfo.cs` ile aynı tutulur (testler kontrol eder); her araç
   sonucu `toolkitVersion` döndürür. Plugin'in istediği en düşük paket sürümü
-  `unity-adapter` skill'inde yazılıdır (şu an: plugin 0.4.4 → paket ≥ 0.4.3).
+  `unity-adapter` skill'inde yazılıdır (şu an: plugin 0.5.0 → paket ≥ 0.5.0).
 
 Unity kurmadan çalışan testler: `tests/run.sh` (.NET 8 SDK gerekir). Paketi tüm derleme
 varyantlarında Unity referans DLL'lerine karşı derler ve tariflerin gerçek Unity modül

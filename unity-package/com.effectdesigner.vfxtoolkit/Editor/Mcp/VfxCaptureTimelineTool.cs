@@ -35,6 +35,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Mcp
             [ToolParameter("Backgrounds: dark, mid, light or hex colors. Default [\"dark\"]. Use [\"dark\",\"light\"] to check readability.", Required = false)]
             public string[] backgrounds { get; set; }
 
+            [ToolParameter("Ground plane under the effect: a hex color (the game's ground, e.g. \"#4E8A3A\" grass) or a background preset; \"none\" or omitted = no ground. Placed at the effect's pivot (ground_height to shift it); counts as background in color stats. Use it for effects that sit on the ground.", Required = false)]
+            public string ground { get; set; }
+
+            [ToolParameter("Height of the ground plane relative to the effect's pivot, in meters. Default 0.", Required = false)]
+            public float? ground_height { get; set; }
+
             [ToolParameter("Frame size in pixels (square), 64-1024. Default 320.", Required = false)]
             public int? frame_size { get; set; }
 

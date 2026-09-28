@@ -41,6 +41,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         public GameObject Effect { get; }
         public int FrameSize { get; }
 
+        /// <summary>Layer of the optional ground plane: drawn in background-only renders too, so it counts as background.</summary>
+        const int GroundLayer = 31;
+        GameObject _ground;
+
         public CaptureRig(GameObject source, int frameSize, float fieldOfView, bool addLight, bool postProcessing, string volumeProfile = null)
         {
             _volumeProfilePath = string.IsNullOrWhiteSpace(volumeProfile) ? null : volumeProfile;
@@ -179,10 +183,37 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         }
 
         /// <summary>Renders only the background and post-processing, with nothing in front of the camera.</summary>
+        /// <summary>
+        /// Adds an unlit ground plane of <paramref name="color"/> at height <paramref name="y"/> under the effect,
+        /// so effects that sit on the ground read as in game and readability is measured against the ground.
+        /// </summary>
+        public void AddGround(Color color, float y, float size)
+        {
+            _ground = new GameObject("VFXCapture_Ground") { hideFlags = HideFlags.DontSave };
+            SceneManager.MoveGameObjectToScene(_ground, _scene);
+            _ground.layer = GroundLayer;
+            _ground.transform.position = new Vector3(0f, y, 0f);
+            float h = size * 0.5f;
+            var quad = new Mesh { name = "VFXCapture_GroundQuad", hideFlags = HideFlags.DontSave };
+            quad.SetVertices(new[] { new Vector3(-h, 0f, -h), new Vector3(-h, 0f, h), new Vector3(h, 0f, h), new Vector3(h, 0f, -h) });
+            quad.SetNormals(new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
+            quad.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0);
+            quad.RecalculateBounds();
+            _ground.AddComponent<MeshFilter>().sharedMesh = quad;
+            _ground.AddComponent<MeshRenderer>();
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
+            var material = new Material(shader) { hideFlags = HideFlags.DontSave };
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            var renderer = _ground.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
         public Texture2D RenderBackgroundOnly(Color background)
         {
             int mask = _camera.cullingMask;
-            _camera.cullingMask = 0;
+            _camera.cullingMask = _ground != null ? 1 << GroundLayer : 0;
             try
             {
                 return Render(background);
@@ -218,6 +249,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             }
             if (_readback != null)
                 UnityEngine.Object.DestroyImmediate(_readback);
+            if (_ground != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_ground.GetComponent<MeshRenderer>().sharedMaterial);
+                UnityEngine.Object.DestroyImmediate(_ground.GetComponent<MeshFilter>().sharedMesh);
+            }
             // Closing the preview scene destroys the effect copy, camera and light.
             EditorSceneManager.ClosePreviewScene(_scene);
         }

@@ -65,4 +65,26 @@ float VFXFresnel(float3 normalWS, float3 viewDirWS, float power)
     return pow(1.0 - saturate(dot(normalize(normalWS), normalize(viewDirWS))), power);
 }
 
+// Four-stop color ramp over t in [0, 1]: c0 at 0, c1..c3 at stops.x..z (ascending).
+// hard = 1 gives flat cel bands (each segment holds its start color), 0 blends smoothly.
+half4 VFXRamp4(float t, half4 c0, half4 c1, half4 c2, half4 c3, float3 stops, float hard)
+{
+    t = saturate(t);
+    float3 st = saturate(stops);
+    half4 smoothColor =
+        t < st.x ? lerp(c0, c1, t / max(st.x, 1e-4)) :
+        t < st.y ? lerp(c1, c2, (t - st.x) / max(st.y - st.x, 1e-4)) :
+        t < st.z ? lerp(c2, c3, (t - st.y) / max(st.z - st.y, 1e-4)) : c3;
+    half4 hardColor = t < st.x ? c0 : t < st.y ? c1 : t < st.z ? c2 : c3;
+    return lerp(smoothColor, hardColor, saturate(hard));
+}
+
+// Toon rim: 0 inside, 1 on the silhouette band of relative width `width`; softness 0 = hard edge.
+float VFXToonRim(float3 normalWS, float3 viewDirWS, float width, float softness)
+{
+    float f = 1.0 - saturate(abs(dot(normalize(normalWS), normalize(viewDirWS))));
+    float start = 1.0 - saturate(width);
+    return saturate((f - start) / max(softness, 1e-3));
+}
+
 #endif // EFFECT_DESIGNER_VFX_CORE_INCLUDED

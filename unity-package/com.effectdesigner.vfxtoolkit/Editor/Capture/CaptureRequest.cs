@@ -90,6 +90,10 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             new Dictionary<string, (Vector3, float)>(StringComparer.OrdinalIgnoreCase);
         /// <summary>Also render each system alone (first view, first background) and measure its colors.</summary>
         public bool SystemColorStats = true;
+        /// <summary>Unlit ground plane color under the effect (at the effect's pivot height); null = none.</summary>
+        public Color? Ground;
+        public string GroundName;
+        public float GroundHeight;
         /// <summary>Also save each system-alone render as a PNG (to compare a layer alone with the composite).</summary>
         public bool SystemFrames;
         public string OutputFolder = "Library/VFXToolkit/Captures";
@@ -172,6 +176,19 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 request.AutoFrame = json["auto_frame"].Value<bool>();
             if (json["system_color_stats"] != null)
                 request.SystemColorStats = json["system_color_stats"].Value<bool>();
+            var groundText = (string)json["ground"];
+            if (!string.IsNullOrWhiteSpace(groundText) && !string.Equals(groundText, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!TryParseBackground(groundText, out var ground, out error))
+                {
+                    error = $"ground: {error}";
+                    return null;
+                }
+                request.Ground = ground.Color;
+                request.GroundName = ground.Name;
+            }
+            if (json["ground_height"] != null)
+                request.GroundHeight = json["ground_height"].Value<float>();
             if (json["system_frames"] != null)
                 request.SystemFrames = json["system_frames"].Value<bool>();
             if (json["view_framing"] != null && !TryParseViewFraming(json["view_framing"], request.ViewFraming, out error))

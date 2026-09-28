@@ -58,7 +58,7 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 
 | Criterion | Weight | Evidence |
 |---|---|---|
-| Spec fidelity | 20 | Every spec layer present and active in its time window (`systemParticleCounts`); archetype and beats recognisable on the contact sheet |
+| Spec fidelity | 20 | Every spec layer present and active in its time window (`systemParticleCounts`); archetype and beats recognisable on the contact sheet. **With references:** the `vfxref compare` sheet shows the same sequence (`curve_correlation` of bright and ink ≥ 0.7), each phase's bright hue within ±12°, and the silhouettes the spec's `follow` list names; 0–1 if the sequence is different |
 | Timing and feel | 20 | Impact within the first 1–3 frames of its beat; clear anticipation/dissipation if specced; fast-then-hang motion; layers offset |
 | Shape and silhouette | 15 | Hero shape reads at thumbnail size; big/medium/small hierarchy; designed shapes rather than soft blobs |
 | Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color, the whole effect's (`colorStats.hue`) within ±15° of the primary; `washedOut` < 35% outside the core flash frame; saturation falls over each layer's life (`systemColorStats`) |

@@ -13,6 +13,11 @@ Examples
   vfxtex.py slash  out.png --arc 150 --width 0.18
   vfxtex.py noise  out.png --size 256 --octaves 5 --cells 4 --seed 7
   vfxtex.py smoke  out.png --frames 16 --grid 4 --steps 3 --seed 2
+  vfxtex.py swirl  out.png --turns 1.3 --width 0.14 --seed 2      (ink curl stroke)
+  vfxtex.py shard  out.png --spikes 7 --seed 3                     (jagged debris / crack burst)
+  vfxtex.py flame  out.png --tongues 3 --seed 1                    (stylized flame tongues)
+  vfxtex.py puff   out.png --lobes 4 --strokes 3 --seed 5          (toon puff, dark inner strokes in RGB)
+  vfxtex.py stripes out.png --bands 8 --seed 4                     (erosion mask: breaks a shell into strips)
   vfxtex.py svg    out.png --svg shape.svg --size 256
   vfxtex.py preview out.png a.png b.png ... --tint 40C8FF   (look at this, not the mask itself)
 
@@ -59,6 +64,16 @@ def save_mask(alpha, path):
     alpha = np.clip(alpha, 0, 1)
     rgba = np.zeros(alpha.shape + (4,), np.uint8)
     rgba[..., :3] = 255
+    rgba[..., 3] = np.round(alpha * 255).astype(np.uint8)
+    Image.fromarray(rgba, "RGBA").save(path)
+    print(path)
+
+
+def save_rgba(alpha, rgb, path):
+    """Mask with shading in RGB (e.g. dark strokes): tint x RGB colors it, alpha is the shape."""
+    alpha = np.clip(alpha, 0, 1)
+    rgba = np.zeros(alpha.shape + (4,), np.uint8)
+    rgba[..., :3] = np.round(np.clip(rgb, 0, 1) * 255).astype(np.uint8)[..., None]
     rgba[..., 3] = np.round(alpha * 255).astype(np.uint8)
     Image.fromarray(rgba, "RGBA").save(path)
     print(path)
@@ -152,6 +167,133 @@ def slash(a):
     width = a.width * np.sin(t * math.pi) ** 0.7  # thick middle, sharp tips
     band = (1 - smoothstep(0, width + 1e-4, np.abs(r - 0.75))) * inside
     return band
+
+
+def strokes_alpha(x, y, paths, softness):
+    """Union of tapered strokes. paths: list of (points (N,2) in -1..1, half-widths (N,))."""
+    alpha = np.zeros_like(x)
+    for pts, widths in paths:
+        for i in range(len(pts) - 1):
+            p0, p1 = pts[i], pts[i + 1]
+            d = p1 - p0
+            L2 = float(d @ d) + 1e-12
+            t = np.clip(((x - p0[0]) * d[0] + (y - p0[1]) * d[1]) / L2, 0, 1)
+            px, py = p0[0] + t * d[0], p0[1] + t * d[1]
+            dist = np.sqrt((x - px) ** 2 + (y - py) ** 2)
+            w = widths[i] + (widths[i + 1] - widths[i]) * t
+            alpha = np.maximum(alpha, 1 - smoothstep(w - softness, w + softness, dist))
+    return alpha
+
+
+def swirl(a):
+    """Ink curl: a spiral stroke that thickens in the middle and tapers to sharp ends."""
+    x, y = grid(a.size)
+    rng = np.random.default_rng(a.seed)
+    n = 160
+    t = np.linspace(0, 1, n)
+    ang = rng.random() * 2 * math.pi + t * a.turns * 2 * math.pi
+    r = 0.12 + (0.78 - 0.12) * t ** 0.9
+    pts = np.stack([np.cos(ang) * r, np.sin(ang) * r], 1)
+    widths = a.width * 0.5 * np.sin(t * math.pi) ** 0.8
+    return strokes_alpha(x, y, [(pts, widths)], a.softness)
+
+
+def shard(a):
+    """Jagged debris / dark crack: a crooked spine with uneven sawtooth spikes on both sides,
+    rasterized at 4x for clean sharp points."""
+    from PIL import ImageDraw
+    rng = np.random.default_rng(a.seed)
+    size = a.size
+    big = size * 4
+    n = a.spikes + 2
+    # Crooked spine across the texture, inside a 10% margin.
+    t = np.linspace(0, 1, n)
+    ang = rng.random() * math.pi
+    d = np.array([math.cos(ang), math.sin(ang)])
+    perp = np.array([-d[1], d[0]])
+    spine = [(-0.75 + 1.5 * ti) * d + perp * (rng.random() - 0.5) * 0.35 for ti in t]
+    left, right = [], []
+    for i, pnt in enumerate(spine):
+        w = a.inner * (0.5 + rng.random()) * math.sin(t[i] * math.pi) ** 0.5
+        tooth = (i % 2 == 0)
+        left.append(pnt + perp * (w + (rng.random() * 0.35 if tooth else 0)))
+        right.append(pnt - perp * (w + (rng.random() * 0.35 if not tooth else 0)))
+    poly = left + right[::-1]
+    poly = [((q[0] * 0.9 + 1) / 2 * big, (q[1] * 0.9 + 1) / 2 * big) for q in poly]
+    im = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(im).polygon(poly, fill=255)
+    return np.asarray(im.resize((size, size), Image.BOX)).astype(float) / 255
+
+
+def flame(a):
+    """Stylized flame tongues: curved tapered strokes rising from a common base."""
+    x, y = grid(a.size)
+    rng = np.random.default_rng(a.seed)
+    paths = []
+    n = 60
+    t = np.linspace(0, 1, n)
+    for i in range(a.tongues):
+        spread = (i - (a.tongues - 1) / 2) / max(1, a.tongues - 1)
+        height = 0.9 - 0.35 * abs(spread) - 0.15 * rng.random()
+        bend = (rng.random() - 0.5) * 0.5 + spread * 0.35
+        px = spread * 0.35 * (1 - t) + bend * np.sin(t * math.pi * 0.9) + spread * 0.1
+        py = 0.8 - t * (0.8 + height)        # from the bottom (y = 0.8) upward (image y grows down)
+        widths = a.width * (1 - t) ** 0.9 * (0.6 + 0.4 * np.sin(np.clip(t * 3, 0, math.pi / 2)))
+        paths.append((np.stack([px, py], 1), widths))
+    return strokes_alpha(x, y, paths, a.softness)
+
+
+def puff(a):
+    """Toon puff: union of round lobes. Returns (alpha, rgb) with dark inner strokes in RGB, so the
+    tint colors the puff and the strokes stay dark."""
+    x, y = grid(a.size)
+    rng = np.random.default_rng(a.seed)
+    alpha = np.zeros_like(x)
+    lobes = []
+    for i in range(a.lobes):
+        ang = i / a.lobes * 2 * math.pi + rng.random() * 0.6
+        dist = 0.18 + 0.12 * rng.random()
+        rad = 0.34 + 0.12 * rng.random()
+        cx, cy = math.cos(ang) * dist, math.sin(ang) * dist
+        lobes.append((cx, cy, rad))
+        alpha = np.maximum(alpha, 1 - smoothstep(rad - a.softness, rad + a.softness, np.sqrt((x - cx) ** 2 + (y - cy) ** 2)))
+    alpha = np.maximum(alpha, 1 - smoothstep(0.3 - a.softness, 0.3 + a.softness, np.sqrt(x * x + y * y)))
+    # Inner strokes: where one lobe's edge crosses another lobe, like the lines inside a cartoon cloud.
+    lobe_alpha = [1 - smoothstep(rad - a.softness, rad + a.softness, np.sqrt((x - cx) ** 2 + (y - cy) ** 2)) for cx, cy, rad in lobes]
+    ink = np.zeros_like(x)
+    for i, (cx, cy, rad) in enumerate(lobes[: a.strokes]):
+        dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+        line = 1 - smoothstep(a.width * 0.5 - a.softness, a.width * 0.5 + a.softness, np.abs(dist - rad))
+        others = np.maximum.reduce([la for j, la in enumerate(lobe_alpha) if j != i]) if len(lobes) > 1 else np.zeros_like(x)
+        # Only the part inside the other lobes and away from the middle: short arcs where lobes
+        # overlap near the outline, with soft ends.
+        inside = smoothstep(0.4, 1.0, others)
+        rc = np.sqrt(x * x + y * y)
+        ring_zone = smoothstep(0.12, 0.22, rc)
+        # One arc per lobe: the side of its edge facing the puff's centre.
+        toward = -(np.arctan2(cy, cx))
+        facing = np.cos(np.arctan2(y - cy, x - cx) + toward + math.pi)
+        arc = smoothstep(-0.1, 0.25, facing)
+        ink = np.maximum(ink, line * inside * ring_zone * arc)
+    ink *= alpha
+    rgb = 1 - ink
+    return alpha, rgb
+
+
+def stripes(a):
+    """Erosion mask that breaks a shell into strips along u (repeat-wrapped): each band gets its
+    own random threshold, band borders erode first, and a little noise roughens the cuts."""
+    size = a.size
+    rng = np.random.default_rng(a.seed)
+    u = (np.arange(size) + 0.5) / size
+    band = np.floor(u * a.bands).astype(int) % a.bands
+    frac = u * a.bands - np.floor(u * a.bands)
+    order = 0.35 + 0.65 * rng.random(a.bands)                 # when each strip goes
+    profile = np.sin(frac * math.pi) ** 0.35                   # 0 at borders -> gaps open first
+    col = order[band] * (0.45 + 0.55 * profile)
+    mask = np.tile(col[None, :], (size, 1))
+    n = value_noise(size, 4, 3, a.seed + 7)
+    return np.clip(mask * (1 - a.noise) + n * a.noise * mask, 0, 1)
 
 
 def noise(a):
@@ -285,6 +427,20 @@ def main(argv=None):
     sp.add_argument("--cells", type=int, default=4); sp.add_argument("--octaves", type=int, default=5)
     sp = sub.add_parser("smoke"); common(sp, 128)
     sp.add_argument("--frames", type=int, default=16); sp.add_argument("--grid", type=int, default=4)
+    sp = sub.add_parser("swirl"); common(sp)
+    sp.add_argument("--turns", type=float, default=1.3); sp.add_argument("--width", type=float, default=0.14)
+    sp.add_argument("--softness", type=float, default=0.012)
+    sp = sub.add_parser("shard"); common(sp)
+    sp.add_argument("--spikes", type=int, default=7); sp.add_argument("--inner", type=float, default=0.12)
+    sp.add_argument("--softness", type=float, default=0.008)
+    sp = sub.add_parser("flame"); common(sp)
+    sp.add_argument("--tongues", type=int, default=3); sp.add_argument("--width", type=float, default=0.16)
+    sp.add_argument("--softness", type=float, default=0.012)
+    sp = sub.add_parser("puff"); common(sp)
+    sp.add_argument("--lobes", type=int, default=4); sp.add_argument("--strokes", type=int, default=2)
+    sp.add_argument("--width", type=float, default=0.07); sp.add_argument("--softness", type=float, default=0.012)
+    sp = sub.add_parser("stripes"); common(sp)
+    sp.add_argument("--bands", type=int, default=8); sp.add_argument("--noise", type=float, default=0.15)
     sp = sub.add_parser("svg"); common(sp)
     sp.add_argument("--svg", type=Path, required=True)
     sp = sub.add_parser("preview")
@@ -297,11 +453,16 @@ def main(argv=None):
         return preview(a)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     fn = {"glow": glow, "ring": ring, "star": star, "streak": streak, "slash": slash,
-          "noise": noise, "smoke": smoke, "svg": svg}[a.cmd]
+          "noise": noise, "smoke": smoke, "svg": svg, "swirl": swirl, "shard": shard,
+          "flame": flame, "puff": puff, "stripes": stripes}[a.cmd]
+    if a.cmd == "puff":
+        alpha, rgb = fn(a)
+        warn_if_cut(alpha, a.cmd)
+        return save_rgba(alpha, rgb, a.out)
     shape = render(fn, a)
-    if a.cmd not in ("noise", "smoke", "streak"):
+    if a.cmd not in ("noise", "smoke", "streak", "stripes"):
         warn_if_cut(shape, a.cmd)
-    (save_gray if a.cmd == "noise" else save_mask)(shape, a.out)
+    (save_gray if a.cmd in ("noise", "stripes") else save_mask)(shape, a.out)
 
 
 if __name__ == "__main__":

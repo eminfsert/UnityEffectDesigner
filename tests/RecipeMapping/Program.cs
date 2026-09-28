@@ -70,6 +70,7 @@ static class Program
         failures += CheckEasingKeys();
         failures += CheckToolkitVersion();
         failures += CheckFrameTimes();
+        failures += CheckMeshShapes();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -230,6 +231,42 @@ static class Program
         Console.WriteLine(ok ? "PASS capture times: 60 fps frame index, same-frame times merged with a note"
                              : $"FAIL capture times: frames {F(0f)} {F(0.008f)} {F(0.017f)} {F(0.05f)} {F(0.5f)}, kept [{string.Join(", ", request.Times)}], note: {note}");
         return ok ? 0 : 1;
+    }
+
+    // Procedural meshes: every triangle faces along its normals, UVs in 0..1, domes rest on y = 0.
+    static int CheckMeshShapes()
+    {
+        var problems = new System.Collections.Generic.List<string>();
+        foreach (var shape in EffectDesigner.VFXToolkit.Editor.Meshes.MeshShapes.Names)
+        {
+            var m = EffectDesigner.VFXToolkit.Editor.Meshes.MeshShapes.Build(shape, new JObject(), out var error);
+            if (m == null) { problems.Add($"{shape}: {error}"); continue; }
+            int wrong = 0;
+            for (int t = 0; t < m.Triangles.Count; t += 3)
+            {
+                var a = m.Vertices[m.Triangles[t]]; var b = m.Vertices[m.Triangles[t + 1]]; var c = m.Vertices[m.Triangles[t + 2]];
+                var face = UnityEngine.Vector3.Cross(b - a, c - a);
+                if (face.sqrMagnitude < 1e-12f) continue;
+                var n = m.Normals[m.Triangles[t]] + m.Normals[m.Triangles[t + 1]] + m.Normals[m.Triangles[t + 2]];
+                if (UnityEngine.Vector3.Dot(face, n) <= 0) wrong++;
+            }
+            if (wrong > 0) problems.Add($"{shape}: {wrong} of {m.Triangles.Count / 3} triangles face away from their normals");
+            if (m.Uv.Any(uv => uv.x < -1e-5f || uv.x > 1.00001f || uv.y < -1e-5f || uv.y > 1.00001f)) problems.Add($"{shape}: UV outside 0..1");
+            if (m.Triangles.Any(i => i < 0 || i >= m.Vertices.Count)) problems.Add($"{shape}: index out of range");
+            if (shape == "dome" || shape == "sphere" || shape == "ring" || shape == "cylinder")
+            {
+                float minY = m.Vertices.Min(v => v.y);
+                if (Math.Abs(minY) > 1e-4f) problems.Add($"{shape}: lowest point at y = {minY}, expected 0");
+            }
+            if (shape == "dome" && Math.Abs(m.Vertices.Max(v => v.y) - 0.5f) > 1e-4f) problems.Add("dome: top should be at y = radius (0.5)");
+        }
+        var cone = EffectDesigner.VFXToolkit.Editor.Meshes.MeshShapes.Build("dome", new JObject { ["angle"] = 60, ["radius"] = 2 }, out _);
+        if (Math.Abs(cone.Vertices.Min(v => v.y)) > 1e-4f) problems.Add("dome angle 60: rim not on y = 0");
+        var bad = EffectDesigner.VFXToolkit.Editor.Meshes.MeshShapes.Build("donut", new JObject(), out var badError);
+        if (bad != null || badError == null || !badError.Contains("dome")) problems.Add("unknown shape should list the shapes");
+        Console.WriteLine(problems.Count == 0 ? "PASS meshes: dome, sphere, ring, cylinder, arc face outward with 0..1 UVs, grounded pivots"
+                                              : "FAIL meshes: " + string.Join("; ", problems));
+        return problems.Count == 0 ? 0 : 1;
     }
 
     static string[] Run(string file)
