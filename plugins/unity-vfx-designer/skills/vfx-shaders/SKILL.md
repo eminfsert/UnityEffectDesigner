@@ -51,7 +51,7 @@ the particle dissolves over its life.
 | `_BackTint` | Color | Multiplies back faces (the inside of a dome): dark and a little transparent reads as a hollow shell |
 | `_ErosionMap`, `_ErosionScroll` | Texture, Vector | Dissolve mask (R) on the mesh UVs; a `vfxtex stripes` mask breaks a dome into vertical strips |
 | `_Erosion`, `_Softness`, `_EdgeWidth`, `_EdgeColor` | | As in Stylized Unlit; per-particle erosion adds Custom1.y |
-| `_SrcBlend`, `_DstBlend`, `_Cull`, `_ZWrite` | Enum | `blend` preset; Cull defaults to Off (both faces) |
+| `_SrcBlend`, `_DstBlend`, `_ZWrite` | Enum | `blend` preset. The shader draws the inside (back faces) in a first pass and the outside in a second, so a translucent shell sorts itself; keep ZWrite off unless a layer must hide what is behind it |
 
 Vertex streams: `["Position", "Normal", "Color", "UV", "Custom1XY"]` (Normal is required
 for the rim), with custom data driving the look over life:

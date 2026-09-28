@@ -356,7 +356,14 @@ def preview(a):
         arr = np.asarray(im).astype(float) / 255
         alpha = arr[..., 3:4]
         color = tint * arr[..., :3]
-        rows = [np.repeat(alpha, 3, axis=2),
+        rgb = arr[..., :3]
+        data = alpha.min() > 0.99 or np.allclose(rgb, alpha, atol=0.02)
+        if data:
+            # Data texture (noise, stripes: grayscale in RGB and alpha): show the values, not a tinted shape.
+            gray = rgb.mean(-1, keepdims=True)
+            alpha = np.ones_like(alpha)
+            color = np.repeat(gray, 3, axis=2)
+        rows = [color if data else np.repeat(alpha, 3, axis=2),
                 dark * (1 - alpha) + color * alpha,
                 light * (1 - alpha) + color * alpha]
         gap = np.ones((4, tile, 3)) * 0.5

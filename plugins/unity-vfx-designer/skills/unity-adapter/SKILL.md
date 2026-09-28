@@ -32,7 +32,7 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.5.0** (`vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
+   needs **toolkit ≥ 0.5.1** (`valueContrast`, the two-pass shell, `vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
    `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging, and
    correct `[HDR]` material colors: effects built with ≤ 0.4.2 have too-light tints and
    need their inline materials re-applied).
@@ -127,7 +127,9 @@ and sub-emitter is active when the spec says it should be, `particleCounts` for 
 `colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
 their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
 `colorStatsByBackground` (the same per background, first view: readability on light and
-ground colors), `systemColorStats` (the same for each system rendered alone: each layer's
+ground colors), `valueContrast` in every color stat (share of the effect's pixels whose
+brightness differs from the background behind them by ≥ 0.2: how much reads by value; with
+a `ground`, the readability measure), `systemColorStats` (the same for each system rendered alone: each layer's
 own hue and how its saturation changes over its life),
 `viewFraming` (look-at point and distance per view) to pass back as `view_framing`,
 (`colorStats.coverage` is a share of the *frame*, and auto framing depends on the sampled

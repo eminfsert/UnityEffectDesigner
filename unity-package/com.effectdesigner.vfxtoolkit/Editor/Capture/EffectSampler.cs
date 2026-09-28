@@ -284,7 +284,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             for (int p = 0; p < _allParticleSystems.Length; p++)
             {
                 var r = _allParticleSystems[p].GetComponent<ParticleSystemRenderer>();
-                _originalMaxParticleSize[p] = r != null ? r.maxParticleSize : float.PositiveInfinity;
+                // Unity applies min/maxParticleSize to camera-facing modes only, not to mesh particles.
+                bool clamps = r != null && r.renderMode != ParticleSystemRenderMode.Mesh && r.renderMode != ParticleSystemRenderMode.None;
+                _originalMaxParticleSize[p] = clamps ? r.maxParticleSize : float.PositiveInfinity;
+                if (!clamps)
+                    continue;
                 if (r != null)
                     r.maxParticleSize = Mathf.Max(r.maxParticleSize, LiftedMaxParticleSize);
             }

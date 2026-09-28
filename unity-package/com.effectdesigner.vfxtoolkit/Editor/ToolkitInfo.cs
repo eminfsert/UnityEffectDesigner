@@ -7,6 +7,6 @@ namespace EffectDesigner.VFXToolkit.Editor
     /// </summary>
     public static class ToolkitInfo
     {
-        public const string Version = "0.5.0";
+        public const string Version = "0.5.1";
     }
 }

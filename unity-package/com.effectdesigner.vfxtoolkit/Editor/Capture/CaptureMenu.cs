@@ -79,7 +79,7 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             string washed = c.washedOut < 0 ? "-" : Inv($"{c.washedOut * 100:0}%");
             string hue = c.hue < 0 ? "-" : Inv($"{c.hue:0}deg");
             return $"Color {label} {ContactSheet.FormatTime(c.time)}: washedOut {washed}, " +
-                   Inv($"saturation {c.saturation:0.00}, ") + $"hue {hue}, " + Inv($"coverage {c.coverage * 100:0.00}%");
+                   Inv($"saturation {c.saturation:0.00}, ") + $"hue {hue}, " + Inv($"coverage {c.coverage * 100:0.00}%, contrast {c.valueContrast * 100:0}%");
         }
 
         static string Inv(FormattableString s) => FormattableString.Invariant(s);

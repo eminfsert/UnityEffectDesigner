@@ -227,9 +227,17 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
                     var systemRenderers = request.SystemColorStats ? sampler.SystemRenderers() : new List<Renderer>();
                     int drawnSystems = systemRenderers.Count(r => r != null);
-                    // One system alone is the whole effect; measuring it again would say nothing new.
-                    if (drawnSystems < 2)
+                    // One system alone is the whole effect: its stats are the composite's (first view, first background).
+                    string singleSystem = null;
+                    if (drawnSystems == 1)
+                    {
+                        singleSystem = labels[systemRenderers.FindIndex(r => r != null)];
                         systemRenderers.Clear();
+                    }
+                    else if (drawnSystems < 2)
+                    {
+                        systemRenderers.Clear();
+                    }
                     for (int i = 0; i < systemRenderers.Count; i++)
                     {
                         if (systemRenderers[i] == null)
@@ -313,6 +321,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                                     result.systemFrames[labels[i]].Add(alonePath);
                             }
                         }
+                    }
+
+                    if (singleSystem != null && request.SystemColorStats)
+                    {
+                        result.systemColorStats[singleSystem] = result.colorStats;
+                        result.notes.Add($"Only one system draws ('{singleSystem}'): its systemColorStats are the composite's colorStats.");
                     }
 
                     WarnAboutColor(result);
@@ -440,6 +454,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         {
             if (result.colorStatsByBackground.Count < 2)
                 return;
+            // A ground plane can fill the whole frame (views looking down): every background then renders
+            // the same, and comparing them says nothing. valueContrast against the ground is the measure then.
+            var lists = result.colorStatsByBackground.Values.ToList();
+            bool identical = lists.All(l => l.Count == lists[0].Count && l.Zip(lists[0], (x, y) => Mathf.Abs(x.coverage - y.coverage) < 1e-4f).All(same => same));
+            if (identical)
+            {
+                result.notes.Add("All backgrounds rendered the same in the first view (the ground fills the frame): readability is in valueContrast against the ground, not in background coverage ratios.");
+                return;
+            }
             var means = result.colorStatsByBackground.ToDictionary(e => e.Key, e => e.Value.Count > 0 ? e.Value.Average(s => s.coverage) : 0f);
             var best = means.OrderByDescending(e => e.Value).First();
             if (best.Value <= 0f)

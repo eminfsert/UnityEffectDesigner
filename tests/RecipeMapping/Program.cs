@@ -71,6 +71,7 @@ static class Program
         failures += CheckToolkitVersion();
         failures += CheckFrameTimes();
         failures += CheckMeshShapes();
+        failures += CheckGroundStats();
 
         Console.WriteLine(failures == 0 ? "All recipe mapping checks passed." : $"{failures} check(s) failed.");
         return failures == 0 ? 0 : 1;
@@ -267,6 +268,38 @@ static class Program
         Console.WriteLine(problems.Count == 0 ? "PASS meshes: dome, sphere, ring, cylinder, arc face outward with 0..1 UVs, grounded pivots"
                                               : "FAIL meshes: " + string.Join("; ", problems));
         return problems.Count == 0 ? 0 : 1;
+    }
+
+    // On a saturated ground: edge pixels in the ground's hue do not set the effect's hue; value contrast
+    // separates dark ink (readable) from pale glow on a light background (not); identical backgrounds skip the ratio warning.
+    static int CheckGroundStats()
+    {
+        const int size = 64;
+        UnityEngine.Color32[] Fill(UnityEngine.Color32 c) => Enumerable.Repeat(c, size * size).ToArray();
+        var grass = new UnityEngine.Color32(78, 138, 58, 255);
+        var frame = Fill(grass);
+        for (int i = 0; i < 600; i++) frame[i] = new UnityEngine.Color32(250, 246, 235, 255);          // white dome
+        for (int i = 600; i < 900; i++) frame[i] = new UnityEngine.Color32(150, 190, 110, 255);        // edges blended with grass
+        for (int i = 900; i < 1000; i++) frame[i] = new UnityEngine.Color32(255, 170, 60, 255);        // orange rim
+        var dome = EffectDesigner.VFXToolkit.Editor.Capture.ColorStats.Measure(frame, Fill(grass), 0f);
+        var ink = Fill(grass); for (int i = 0; i < 500; i++) ink[i] = new UnityEngine.Color32(14, 12, 10, 255);
+        var inkStats = EffectDesigner.VFXToolkit.Editor.Capture.ColorStats.Measure(ink, Fill(grass), 0f);
+        var light = new UnityEngine.Color32(199, 204, 209, 255);
+        var glow = Fill(light); for (int i = 0; i < 500; i++) glow[i] = new UnityEngine.Color32(235, 222, 190, 255);
+        var glowStats = EffectDesigner.VFXToolkit.Editor.Capture.ColorStats.Measure(glow, Fill(light), 0f);
+
+        var same = new EffectDesigner.VFXToolkit.Editor.Capture.TimelineCaptureResult();
+        var list = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.3f } };
+        same.colorStatsByBackground["dark"] = list;
+        same.colorStatsByBackground["light"] = new System.Collections.Generic.List<EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats> { new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { coverage = 0.3f } };
+        EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.WarnAboutReadability(same);
+
+        bool ok = dome.hue > 20f && dome.hue < 45f && inkStats.valueContrast > 0.95f && glowStats.valueContrast < 0.05f
+                  && same.warnings.Count == 0 && same.notes.Count == 1;
+        Console.WriteLine(ok
+            ? $"PASS ground stats: hue ignores ground-colored edges ({dome.hue:0}deg), contrast ink {inkStats.valueContrast:0.00} vs pale glow on light {glowStats.valueContrast:0.00}, identical backgrounds noted"
+            : $"FAIL ground stats: dome hue {dome.hue}, ink contrast {inkStats.valueContrast}, glow contrast {glowStats.valueContrast}, warnings {same.warnings.Count}, notes {same.notes.Count}");
+        return ok ? 0 : 1;
     }
 
     static string[] Run(string file)

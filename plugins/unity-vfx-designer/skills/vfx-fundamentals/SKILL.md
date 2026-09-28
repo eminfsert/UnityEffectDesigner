@@ -62,7 +62,7 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 | Timing and feel | 20 | Impact within the first 1–3 frames of its beat; clear anticipation/dissipation if specced; fast-then-hang motion; layers offset |
 | Shape and silhouette | 15 | Hero shape reads at thumbnail size; big/medium/small hierarchy; designed shapes rather than soft blobs |
 | Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color, the whole effect's (`colorStats.hue`) within ±15° of the primary; `washedOut` < 35% outside the core flash frame; saturation falls over each layer's life (`systemColorStats`) |
-| Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); readable at thumbnail size; not a single blob at peak |
+| Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); with a `ground`, `valueContrast` against it ≥ 0.5 at the impact and through the main body; readable at thumbnail size; not a single blob at peak |
 | Technical | 15 | No toolkit `warnings` or errors (`notes` are information, not problems), no compile errors, sensible particle counts for the platform, no layer cut by the frame |
 
 Always capture with the game's volume profile. Color is only judged under the game's
