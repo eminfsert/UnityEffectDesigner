@@ -72,7 +72,7 @@ smoke over grass), `mid` (translucent color, shading, soft edges); `bright_hue` 
 
 ```
 vfxref.py compare <out> --reference <analysis>/reference.json \
-          --capture <capture outputFolder> --view three_quarter --background-name <bg> --background "#4E8A3A"
+          --capture <capture outputFolder> --view three_quarter --background-name <bg>
 ```
 
 - Pairs each reference frame with the capture frame nearest its time (`--time-scale`,
@@ -89,4 +89,11 @@ vfxref.py compare <out> --reference <analysis>/reference.json \
   bottom corners (the ground, with `ground`); `summary.background_used` says which color was
   used.
 - **Characters and UI:** a following camera moves the player through the crop; check the
-  "measured" row of every frame and widen `--ignore` boxes until no character is lit.
+  "measured" row of every frame and widen `--ignore` boxes until no character is lit,
+  other players and name tags included (one box per frame is fine: repeat `--ignore`).
+- Leave `--background` out: the capture's ground is read from its frames
+  (`background_used`). Post-processing changes the ground's color, so a hex from the
+  manifest does not match what was rendered (the tool warns and uses the rendered one).
+- Numbers from `vfxref` before plugin 0.5.3 have no `smoke` class: dark smoke over grass
+  was counted as `ink`/`mid` there. Re-run `sheet` and `compare` with the current version
+  before comparing rounds.

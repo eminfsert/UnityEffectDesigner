@@ -17,7 +17,8 @@ Examples
   vfxtex.py shard  out.png --spikes 7 --seed 3                     (jagged debris / crack burst)
   vfxtex.py flame  out.png --tongues 3 --seed 1                    (stylized flame tongues)
   vfxtex.py puff   out.png --lobes 4 --strokes 3 --seed 5          (toon puff, dark inner strokes in RGB)
-  vfxtex.py stripes out.png --bands 8 --seed 4                     (erosion mask: breaks a shell into strips)
+  vfxtex.py stripes out.png --bands 7 --arch 1 --seed 4            (erosion mask: breaks a shell into strips/arches)
+  vfxtex.py wisp   out.png --curls 1.5 --width 0.12 --seed 3       (smoke tendril stroke)
   vfxtex.py svg    out.png --svg shape.svg --size 256
   vfxtex.py preview out.png a.png b.png ... --tint 40C8FF   (look at this, not the mask itself)
 
@@ -270,7 +271,8 @@ def puff(a):
     # inside the silhouette), for the first --strokes bumps.
     body_alpha = 1 - smoothstep(body_r - 0.05, body_r, np.sqrt(x * x + y * y))
     ink = np.zeros_like(x)
-    for cx, cy, rad in bumps[: a.strokes]:
+    # Every other bump, so strokes on neighbouring bumps never cross.
+    for cx, cy, rad in bumps[::2][: a.strokes]:
         dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
         line = 1 - smoothstep(a.width * 0.5 - a.softness, a.width * 0.5 + a.softness, np.abs(dist - rad * 0.95))
         # The side of the bump facing the body's centre, faded at its ends.
@@ -278,6 +280,19 @@ def puff(a):
         ink = np.maximum(ink, line * body_alpha * smoothstep(0.1, 0.5, facing))
     ink *= alpha
     return alpha, 1 - ink
+
+
+def wisp(a):
+    """Smoke wisp: a thin S-curved stroke, thickest just after its start and fading to a hair at
+    the end (for smoke tendrils, trails of dust, curling steam). Soft edges; tint it gray/dark."""
+    x, y = grid(a.size)
+    rng = np.random.default_rng(a.seed)
+    t = np.linspace(0, 1, 90)
+    bend = (0.25 + 0.2 * rng.random()) * (1 if rng.random() < 0.5 else -1)
+    px = -0.75 + 1.5 * t
+    py = bend * np.sin(t * math.pi * a.curls) * (1 - 0.3 * t) + (rng.random() - 0.5) * 0.2 * t
+    widths = a.width * 0.5 * np.sin(np.clip(t * 1.6, 0, 1) * math.pi * 0.5) * (1 - t) ** 0.8
+    return strokes_alpha(x, y, [(np.stack([px, py], 1), widths)], a.softness)
 
 
 def stripes(a):
@@ -301,7 +316,8 @@ def stripes(a):
     arches = np.sqrt((d * 1.0) ** 2 + (V * 0.85) ** 2) * (0.75 + 0.25 * order[band])
     mask = (1 - a.arch) * straight + a.arch * np.clip(arches, 0, 1)
     n = value_noise(size, 4, 3, a.seed + 7)
-    return np.clip(mask * (1 - a.noise) + n * a.noise * mask, 0, 1)
+    # A small floor: nothing is at exactly 0, so a shader edge band never outlines the gaps at erosion 0.
+    return np.clip(0.03 + 0.97 * (mask * (1 - a.noise) + n * a.noise * mask), 0, 1)
 
 
 def noise(a):
@@ -464,6 +480,9 @@ def main(argv=None):
     sp = sub.add_parser("puff"); common(sp)
     sp.add_argument("--lobes", type=int, default=6); sp.add_argument("--strokes", type=int, default=3)
     sp.add_argument("--width", type=float, default=0.07); sp.add_argument("--softness", type=float, default=0.012)
+    sp = sub.add_parser("wisp"); common(sp)
+    sp.add_argument("--curls", type=float, default=1.5); sp.add_argument("--width", type=float, default=0.18)
+    sp.add_argument("--softness", type=float, default=0.03)
     sp = sub.add_parser("stripes"); common(sp)
     sp.add_argument("--bands", type=int, default=7); sp.add_argument("--noise", type=float, default=0.15)
     sp.add_argument("--arch", type=float, default=0.0, help="0..1: gaps wide at the bottom, rounded at the top (arches on the ground)")
@@ -481,7 +500,7 @@ def main(argv=None):
     a.out.parent.mkdir(parents=True, exist_ok=True)
     fn = {"glow": glow, "ring": ring, "star": star, "streak": streak, "slash": slash,
           "noise": noise, "smoke": smoke, "svg": svg, "swirl": swirl, "shard": shard,
-          "flame": flame, "puff": puff, "stripes": stripes}[a.cmd]
+          "flame": flame, "puff": puff, "stripes": stripes, "wisp": wisp}[a.cmd]
     if a.cmd == "puff":
         alpha, rgb = fn(a)
         warn_if_cut(alpha, a.cmd)

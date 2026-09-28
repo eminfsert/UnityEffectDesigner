@@ -305,6 +305,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
         public void Dispose()
         {
+            if (RenderTexture.active == _target)
+                RenderTexture.active = null;
             if (_camera != null)
                 _camera.targetTexture = null;
             if (_target != null)

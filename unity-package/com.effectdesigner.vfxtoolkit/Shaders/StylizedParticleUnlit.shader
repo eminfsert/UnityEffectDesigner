@@ -109,7 +109,9 @@ Shader "EffectDesigner/Particles/Stylized Unlit"
                 half4 color = baseColor * _TintColor * input.color;
 
                 float edge = 0;
-                if (input.erosion > 0.0 || _EdgeWidth > 0.0)
+                // No erosion = the whole shape, even where the noise is 0 (a mask of 0 would otherwise
+                // vanish from the first frame, and the edge color would outline it).
+                if (input.erosion > 0.0)
                 {
                     float noise = SAMPLE_TEXTURE2D(_NoiseMap, sampler_NoiseMap, input.uv.zw).r;
                     color.a *= VFXErode(noise, input.erosion, _Softness, _EdgeWidth, edge);

@@ -356,9 +356,10 @@ static class Program
         r.colorStats.Add(new EffectDesigner.VFXToolkit.Editor.Capture.FrameColorStats { time = 0.0166667f, coverage = 0.123456f, hue = 41.98765f });
         r.systemColorStats["Dome"] = r.colorStats;
         var c = EffectDesigner.VFXToolkit.Editor.Capture.TimelineCapture.Compact(r);
-        bool ok = c["frames"] == null && (double)c["times"][1] == 0.017 && (double)c["colorStats"][0]["coverage"] == 0.123
-                  && (double)c["systemColorStats"]["Dome"][0]["hue"] == 41.988 && (string)c["contactSheet"] == "sheet.png";
-        Console.WriteLine(ok ? "PASS compact capture result: frames dropped, numbers rounded, the rest kept" : "FAIL compact capture result: " + c.ToString(Newtonsoft.Json.Formatting.None));
+        bool ok = c["frames"] == null && (double)c["times"][1] == 0.017 && (double)c["colorStats"]["coverage"][0] == 0.123
+                  && (double)c["systemColorStats"]["Dome"]["hue"][0] == 41.988 && (double)c["colorStats"]["time"][0] == 0.017
+                  && (string)c["contactSheet"] == "sheet.png";
+        Console.WriteLine(ok ? "PASS compact capture result: frames dropped, numbers rounded, color stats as columns, the rest kept" : "FAIL compact capture result: " + c.ToString(Newtonsoft.Json.Formatting.None));
         return ok ? 0 : 1;
     }
 

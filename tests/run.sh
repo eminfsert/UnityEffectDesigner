@@ -19,7 +19,8 @@ if python3 -c "import numpy, PIL" 2>/dev/null; then
   for cmd in "glow $out/glow.png" "ring $out/ring.png --breaks 5" "star $out/star.png --points 6 --steps 3" \
              "streak $out/streak.png" "slash $out/slash.png" "noise $out/noise.png --size 64" \
              "smoke $out/smoke.png --size 64 --steps 3" "swirl $out/swirl.png" "shard $out/shard.png" \
-             "flame $out/flame.png" "puff $out/puff.png" "stripes $out/stripes.png --size 128"; do
+             "flame $out/flame.png" "puff $out/puff.png" "stripes $out/stripes.png --size 128 --arch 1" \
+             "wisp $out/wisp.png"; do
     python3 "$T" $cmd > /dev/null
   done
   python3 "$T" preview "$out/preview.png" "$out"/glow.png "$out"/ring.png > /dev/null
@@ -29,7 +30,7 @@ from PIL import Image
 out = sys.argv[1]
 checks = {"glow": (128, 128), "ring": (256, 256), "star": (256, 256), "streak": (512, 128),
           "slash": (256, 256), "noise": (64, 64), "smoke": (256, 256), "swirl": (256, 256),
-          "shard": (256, 256), "flame": (256, 256), "puff": (256, 256), "stripes": (128, 128)}
+          "shard": (256, 256), "flame": (256, 256), "puff": (256, 256), "stripes": (128, 128), "wisp": (256, 256)}
 bad = []
 for name, size in checks.items():
     im = Image.open(f"{out}/{name}.png")

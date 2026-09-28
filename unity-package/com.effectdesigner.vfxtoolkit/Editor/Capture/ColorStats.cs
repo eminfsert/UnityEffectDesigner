@@ -17,6 +17,12 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         /// <summary>Mean HSV saturation of the effect's pixels (0 gray/white, 1 fully saturated).</summary>
         public float saturation;
         /// <summary>
+        /// Mean saturation of the effect's solid pixels only (far from the background color): edges blended
+        /// with the ground and thin strokes inflate or deflate <see cref="saturation"/>; this is the fill's own.
+        /// -1 when the effect has too few solid pixels.
+        /// </summary>
+        public float coreSaturation = -1f;
+        /// <summary>
         /// Dominant hue in degrees (0 red, 60 yellow, 120 green, 240 blue) over saturated pixels; -1 if none.
         /// Pixels whose hue is the background's own (edges blended with grass, say) are left out.
         /// </summary>
@@ -45,13 +51,15 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
         const float HueSaturationMin = 0.25f;
         const float BackgroundHueWindow = 20f;
         const int MinHuePixels = 20;
+        /// <summary>Max channel difference from the background (0-255) for a pixel to count as the effect's solid fill.</summary>
+        const int CoreDistance = 64;
         const float MinHueShare = 0.02f;
         const float ContrastLuma = 0.2f;
 
         public static FrameColorStats Measure(Color32[] frame, Color32[] background, float time)
         {
-            int effect = 0, bright = 0, colorless = 0, contrasted = 0, hueSamples = 0;
-            double saturationSum = 0, hueX = 0, hueY = 0;
+            int effect = 0, bright = 0, colorless = 0, contrasted = 0, hueSamples = 0, core = 0;
+            double saturationSum = 0, hueX = 0, hueY = 0, coreSaturationSum = 0;
 
             for (int i = 0; i < frame.Length; i++)
             {
@@ -62,6 +70,11 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
 
                 effect++;
                 Color.RGBToHSV(a, out float h, out float s, out float v);
+                if (Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Max(Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b))) >= CoreDistance)
+                {
+                    core++;
+                    coreSaturationSum += s;
+                }
                 if (Mathf.Abs(Luma(a) - Luma(b)) >= ContrastLuma)
                     contrasted++;
                 saturationSum += s;
@@ -95,6 +108,8 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
                 stats.washedOut = colorless / (float)bright;
             stats.saturation = (float)(saturationSum / effect);
             stats.valueContrast = contrasted / (float)effect;
+            if (core >= MinHuePixels)
+                stats.coreSaturation = (float)(coreSaturationSum / core);
             // A hue from a handful of pixels (a few embers, soft edges) says nothing about the layer's color.
             if ((hueX != 0 || hueY != 0) && hueSamples >= Mathf.Max(MinHuePixels, MinHueShare * effect))
             {

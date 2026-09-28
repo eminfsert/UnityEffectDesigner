@@ -49,6 +49,7 @@ C# fallback below instead of blocking.
 | `flame` | stylized flame tongues rising from a base | `--tongues 3 --width 0.16 --seed 1` |
 | `puff` | toon puff: a round body with bumps around its edge (a cartoon cloud), **dark strokes in RGB** where bumps meet the body (tint colors the puff, strokes stay dark) | `--lobes 6 --strokes 3 --seed 5` |
 | `stripes` | erosion mask (grayscale, repeat) that breaks a shell into strips along u: borders open first, each strip goes at its own time; `--arch 1` opens rounded arches from the ground up instead of straight slits | `--bands 7 --arch 1 --noise 0.15 --seed 4` (odd band counts keep a dome's front and back gaps from lining up) |
+| `wisp` | smoke tendril: thin S-curved stroke, thick near its start, fading to a hair | `--curls 1.5 --width 0.18 --seed 3` |
 | `svg` | rasterize an SVG you wrote | `--svg shape.svg` (needs `cairosvg`) |
 | `preview` | alpha row + tinted on dark + tinted on light (+ on the game's ground with `--ground`); data textures (noise, stripes) are shown as gray values | `preview out.png a.png b.png ... --tint 40C8FF --ground 4E8A3A` |
 
@@ -91,7 +92,8 @@ tools:
 - Masks: sRGB on, alpha source **from input**, **Alpha Is Transparency on**, wrap **Clamp**,
   mipmaps on (particles shrink; without mipmaps small ones shimmer).
 - Noise/data: **sRGB off**, wrap **Repeat**, Alpha Is Transparency off, mipmaps on.
-- `stripes` masks are data like noise: sRGB off, wrap **Repeat** (u wraps around a dome).
+- `stripes` masks are data like noise: sRGB off; wrap **U Repeat** (u wraps around a
+  dome) and **V Clamp** (the arches must not wrap from the top back to the base).
 - `puff` carries shading in RGB: keep sRGB on; the material tint multiplies RGB, so the
   strokes stay dark whatever the tint.
 - Flipbooks: wrap Clamp, mipmaps on; record the grid (e.g. 4x4) in the manifest for the

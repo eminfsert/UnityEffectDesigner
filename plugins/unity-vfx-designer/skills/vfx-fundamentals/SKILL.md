@@ -67,7 +67,7 @@ Score each 0–5, weight, total out of 100. **Pass at ≥ 75 with no criterion a
 | Spec fidelity | 20 | Every spec layer present and active in its time window (`systemParticleCounts`); archetype and beats recognisable on the contact sheet. **With references:** the `vfxref compare` sheet shows the same sequence (`curve_correlation` of bright and ink ≥ 0.7), each phase's bright hue within ±12°, and the silhouettes the spec's `follow` list names; 0–1 if the sequence is different |
 | Timing and feel | 20 | Impact within the first 1–3 frames of its beat; clear anticipation/dissipation if specced; fast-then-hang motion; layers offset |
 | Shape and silhouette | 15 | Hero shape reads at thumbnail size; big/medium/small hierarchy; designed shapes rather than soft blobs |
-| Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color, the whole effect's (`colorStats.hue`) within ±15° of the primary; `washedOut` < 35% outside the core flash frame; saturation falls over each layer's life (`systemColorStats`) |
+| Color | 15 | Each layer's rendered hue (`systemColorStats.<layer>.hue`) within ±15° of its palette color at each phase (with a color sequence in the spec, per phase; otherwise the whole effect within ±15° of the primary); `washedOut` < 35% outside the core flash frame; saturation (`coreSaturation` for the fill itself) follows the spec over each layer's life |
 | Readability | 15 | No "Low contrast" warning: coverage on the light/ground background ≥ 50% of the dark one (`colorStatsByBackground`); with a `ground`, `valueContrast` against it ≥ 0.5 at the impact and through the main body; readable at thumbnail size; not a single blob at peak |
 | Technical | 15 | No toolkit `warnings` or errors (`notes` are information, not problems), no compile errors, sensible particle counts for the platform, no layer cut by the frame |
 
@@ -114,6 +114,10 @@ in the review which captures a score rests on.
   made smoke nearly opaque when the spec said translucent; "saturation falls" turned orange
   puffs brown. Give a window tied to the spec (translucent smoke: coverage and contrast
   within ranges; a color path: a hue and saturation window per phase).
+- **Physically possible.** A translucent fill over the ground changes the ground's luma by
+  opacity × (fill luma − ground luma): a 0.55-opaque dark fill over mid-green grass cannot
+  reach `valueContrast` 0.35 with the fill alone. Translucent layers get their contrast
+  from an opaque rim, strokes or darker cores; write the test for those parts.
 - **Feasible together.** Check that a fix's conditions can hold at once (coverage 55–80% and
   mid ≥ 0.3 left almost no room); relax the one the spec cares least about.
 - **Only at captured times.** Every time in an acceptance test must be in the manifest's

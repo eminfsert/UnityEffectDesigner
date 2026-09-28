@@ -50,7 +50,7 @@ the particle dissolves over its life.
 | `_RimWidth`, `_RimSoftness` | Range | Rim band width (0–1 of the silhouette falloff) and edge hardness (small = toon) |
 | `_BackTint` | Color | Multiplies back faces (the inside of a dome): dark and a little transparent reads as a hollow shell |
 | `_ErosionMap`, `_ErosionScroll` | Texture, Vector | Dissolve mask (R) on the mesh UVs; a `vfxtex stripes` mask breaks a dome into vertical strips |
-| `_Erosion`, `_Softness`, `_EdgeWidth`, `_EdgeColor` | | As in Stylized Unlit; per-particle erosion adds Custom1.y |
+| `_Erosion`, `_Softness`, `_EdgeWidth`, `_EdgeColor` | | As in Stylized Unlit; per-particle erosion adds Custom1.y. At erosion 0 nothing is cut and no edge is drawn (both shaders) |
 | `_SrcBlend`, `_DstBlend`, `_ZWrite` | Enum | `blend` preset. The shader draws the inside (back faces) in a first pass and the outside in a second, so a translucent shell sorts itself. Keep ZWrite off unless the shell must hide what is behind it; eroded-away pixels never write depth |
 
 Arc meshes have normals tilted toward both edges, so the rim traces the blade's outline

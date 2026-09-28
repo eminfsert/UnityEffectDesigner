@@ -395,7 +395,29 @@ namespace EffectDesigner.VFXToolkit.Editor.Capture
             var json = Newtonsoft.Json.Linq.JObject.FromObject(result);
             json.Remove("frames");
             Round(json);
+            // Color stats as columns: {"time": [...], "coverage": [...], ...} instead of one object per time.
+            json["colorStats"] = Columns((Newtonsoft.Json.Linq.JArray)json["colorStats"]);
+            foreach (var key in new[] { "colorStatsByBackground", "systemColorStats" })
+                if (json[key] is Newtonsoft.Json.Linq.JObject group)
+                    foreach (var entry in group.Properties().ToList())
+                        entry.Value = Columns((Newtonsoft.Json.Linq.JArray)entry.Value);
+            json["format"] = "compact: color stats are columns (one array per field, aligned with 'time'); the full result is in resultFile";
             return json;
+        }
+
+        static Newtonsoft.Json.Linq.JToken Columns(Newtonsoft.Json.Linq.JArray rows)
+        {
+            if (rows == null || rows.Count == 0)
+                return rows;
+            var columns = new Newtonsoft.Json.Linq.JObject();
+            foreach (var row in rows.OfType<Newtonsoft.Json.Linq.JObject>())
+                foreach (var field in row.Properties())
+                {
+                    if (!(columns[field.Name] is Newtonsoft.Json.Linq.JArray column))
+                        columns[field.Name] = column = new Newtonsoft.Json.Linq.JArray();
+                    column.Add(field.Value.DeepClone());
+                }
+            return columns;
         }
 
         static void Round(Newtonsoft.Json.Linq.JToken token)

@@ -32,7 +32,8 @@ The Director runs this once. Subagents it starts can assume it passed and skip i
    `https://github.com/eminfsert/UnityEffectDesigner.git?path=unity-package/com.effectdesigner.vfxtoolkit#claude/trusting-ritchie-uze78h`
    and reconnect the MCP client.
 4. **Check the version.** Every toolkit result has `toolkitVersion`. This plugin version
-   needs **toolkit ≥ 0.5.5** (compact results with `resultFile`, HDR captures like the game camera; before 0.5.4 captures
+   needs **toolkit ≥ 0.5.8** (columnar compact results, `coreSaturation`, erosion 0 keeping the
+   whole shape, compact results with `resultFile`, HDR captures like the game camera; before 0.5.4 captures
    clipped HDR colors at 1 before post-processing, so their color numbers are not
    comparable), `valueContrast`, the two-pass shell, `vfx_make_mesh`, the Stylized Shell shader, capture `ground`, `colorStatsByBackground`, `systemColorStats`,
    `view_framing`, `system_frames`, off-scene `save_prefab`, same-frame time merging, and
@@ -116,7 +117,7 @@ Renders the effect in an isolated preview scene at the requested times, determin
 | `view_framing` | none | A previous result's `viewFraming` (`[{view, lookAt, distance}]`): those views reuse that camera placement exactly and skip auto framing. Use it every round after the first so iterations line up |
 | `system_color_stats` | true | Also renders each system alone (first view, first background) for `systemColorStats`. One extra render per system per time (~10% capture time for two systems); turn off for quick looks |
 | `ground` | none | A ground plane under the effect in the game's ground color (hex), at the pivot (`ground_height` shifts it). Use it for anything that sits on the ground (domes, ground rings, dust); it counts as background in the color stats, so readability is measured against the real ground |
-| `detail` | compact | The response drops per-frame paths and rounds numbers (large captures otherwise exceed what the client shows); the full result is always in `resultFile` (`result.json` in the output folder). `"full"` returns everything |
+| `detail` | compact | The response drops per-frame paths, rounds numbers, and gives color stats as **columns** (`colorStats.hue[i]` is the hue at `colorStats.time[i]`; same for `colorStatsByBackground.<bg>` and `systemColorStats.<system>`); the full result (one object per time) is always in `resultFile` (`result.json` in the output folder). `"full"` returns everything |
 | `system_frames` | false | Also saves those system-alone renders as PNGs (`systemFrames`), to see why a layer alone and the composite measure differently |
 | `post_processing` | true | Uses the project's global volumes (bloom matters for stylized glow) |
 | `volume_profile` | project setting | **The game scene's VolumeProfile** (`Assets/...asset`). Volumes in open scenes never reach captures; without a profile only the pipeline defaults (global + quality level) apply, and colors cannot be judged against the game (e.g. a scene's ColorAdjustments saturation +25 is missing). Set it once per project in `ProjectSettings/EffectDesigner.json` (`{"volume_profile": "Assets/...asset"}`) and every capture uses it; the parameter overrides it, and `"none"` renders with the pipeline defaults only (for before/after comparisons) |
@@ -130,7 +131,8 @@ and sub-emitter is active when the spec says it should be, `particleCounts` for 
 `colorStats` (per time, first view/background: `washedOut` = share of bright pixels that lost
 their color, mean `saturation`, dominant `hue` in degrees) to judge color objectively,
 `colorStatsByBackground` (the same per background, first view: readability on light and
-ground colors), `valueContrast` in every color stat (share of the effect's pixels whose
+ground colors), `coreSaturation` (the saturation of the effect's solid fill only, without the
+edges blended with the background and thin strokes that skew `saturation`), `valueContrast` in every color stat (share of the effect's pixels whose
 brightness differs from the background behind them by ≥ 0.2: how much reads by value; with
 a `ground`, the readability measure), `systemColorStats` (the same for each system rendered alone: each layer's
 own hue and how its saturation changes over its life),

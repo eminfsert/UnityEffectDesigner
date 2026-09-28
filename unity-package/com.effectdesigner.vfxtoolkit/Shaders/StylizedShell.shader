@@ -140,11 +140,13 @@ Shader "EffectDesigner/Particles/Stylized Shell"
                 color *= _BackTint;
 
             float edge = 0;
-            if (input.custom.y > 0.0 || _EdgeWidth > 0.0)
+            // No erosion = the whole shell, even where the mask is 0 (strip borders would otherwise be cut
+            // from the first frame).
+            if (input.custom.y > 0.0)
             {
                 float mask = SAMPLE_TEXTURE2D(_ErosionMap, sampler_ErosionMap, input.uv.zw).r;
                 color.a *= VFXErode(mask, input.custom.y, _Softness, _EdgeWidth, edge);
-                color.rgb = lerp(color.rgb, _EdgeColor.rgb * input.color.rgb, edge * step(0.0001, input.custom.y));
+                color.rgb = lerp(color.rgb, _EdgeColor.rgb * input.color.rgb, edge);
             }
             // Eroded-away pixels write nothing, so a shell with ZWrite on does not hide what is behind its gaps.
             clip(color.a - 0.001);

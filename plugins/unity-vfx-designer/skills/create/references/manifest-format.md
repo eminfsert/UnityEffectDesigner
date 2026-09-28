@@ -84,6 +84,14 @@ Rules:
 - **Vertex streams and custom data are a contract** between the Particle and Shader
   artists. Change them only here, never on one side alone.
 - Prefer the starter shader. A custom shader needs a one-line reason in the manifest.
+- **Draw order is a contract** when layers overlap from a free camera: a layer that must not
+  cover another gets an explicit `sorting_fudge` relation here (placement alone does not
+  hold for every camera angle).
+- **Who updates what.** The manifest holds contracts and starting values; the current
+  values live in the last applied recipes in `Design/recipes/` (every artist, the shader
+  artist included, saves the patch it applied there). When a contract changes (a shader
+  property added, a stream, a draw order), the owner reports it and the architect updates
+  the manifest before the next round.
 - **Contracts, not tuning.** The manifest fixes names, paths, texture/material/system
   links, shader properties and streams. Curves, counts, speeds and exact colors live in the
   recipes (`Design/recipes/`) and change every round; `tint` and `properties` here are

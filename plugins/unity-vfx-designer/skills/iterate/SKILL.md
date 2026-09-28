@@ -24,7 +24,10 @@ You are the Director again (see the `create` skill for the team and rules). Load
 
    Ask only when a delta is a real creative fork. Otherwise proceed.
 3. Update `effect.spec.yaml` (and `manifest.yaml` through the architect if names, layers or
-   contracts change).
+   contracts change). **When the architect has work, it finishes before any artist starts**:
+   artists build against the manifest, and one started early builds against a stale one.
+   Only if the change is small enough to skip the architect, write the full contract (shader
+   name, property names, streams) into `Design/log.md` first and point every artist at it.
 4. Route the changes to the owners as **patch recipes** (only the systems and keys that
    change). Use `"reset": true` only when a layer changes concept.
 5. Run `vfx-critic` for one review round with the same capture block and the last review's
